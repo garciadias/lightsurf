@@ -122,3 +122,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+data/raw_data/
+
+data/mdwarfs_DR17

@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "lightsurf"
+version = "0.1.0"
+description = ""
+authors = ["Rafael Dias <rafaelagd@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+astropy = "^6.1.4"
+pandas = "^2.2.3"
+tqdm = "^4.66.5"
+matplotlib = "^3.9.2"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-cov = "^5.0.0"
+taskipy = "^1.13.0"
+isort = "^5.13.2"
+black = "^24.10.0"
+mypy = "^1.11.2"
+ruff = "^0.6.9"
+ipykernel = "^6.29.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:"]
+omit = ["*/rgd-sainsburys/exploratory_analysis/*"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py"]
+addopts = ["--cov=lightsurf", "--cov-report=term-missing"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+exclude = [
+    "*/migrations/*",
+    "*/settings.py",
+    "*/wsgi.py",
+    "*/asgi.py",
+    "*/mlflwo/*",
+    "*/__pycache__/*",
+]
+
+[tool.ruff.lint]
+preview = true
+select = ['I', 'F', 'E', 'W', 'PT']
+
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.taskipy.tasks]
+test = "pytest"
+lint = "mypy ."
+format = "ruff check . --fix"
+pre_test = "task format && task lint"
+post_test = "coverage html"
