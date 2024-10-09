@@ -11,6 +11,7 @@ astropy = "^6.1.4"
 pandas = "^2.2.3"
 tqdm = "^4.66.5"
 matplotlib = "^3.9.2"
+click = "^8.1.7"
 
 
 [tool.poetry.group.dev.dependencies]
