@@ -42,7 +42,7 @@ async def download_in_batches(
 ) -> None:
     n_stars = len(star_data_list)
     for i in tqdm.tqdm(range(0, n_stars, batch_size), desc="🌐 Downloading spectra"):
-        batch = star_data_list[i:i + batch_size]
+        batch = star_data_list[i : i + batch_size]
         tasks = [download_star(star_data, output_path) for star_data in batch]
         await asyncio.gather(*tasks)
 

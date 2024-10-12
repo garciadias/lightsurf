@@ -59,7 +59,7 @@ def main(star_path: str | Path, output_path: str | Path) -> None:
     FLUX, FAILED_STARS = combine_fluxes(star_paths=star_paths)
     FLUX.index.name = "FILE"
     print(f"📦 Saving combined fluxes at {output_path}")
-    FLUX.to_csv(f"{output_path}/flux.csv")
+    FLUX.round(4).to_csv(f"{output_path}/flux.csv", float_format="%.4f")
     print(f"📦 Saving failed stars at {output_path}")
     FAILED_STARS.to_csv(f"{output_path}/failed_stars.csv", index=False)
     print("✅ Done")
