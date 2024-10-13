@@ -68,7 +68,7 @@ class ModelEvaluator:
             accuracy=accuracy,
             precision=precision,
             recall=recall,
-            f1=f1,
+            f1_score=f1,
         )
         self.confusion_matrix = self.create_confusion_matrix(
             data_service.y_test, self.y_pred

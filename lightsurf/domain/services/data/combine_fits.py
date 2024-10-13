@@ -6,7 +6,7 @@ import pandas as pd
 from astropy.io import fits
 from tqdm import tqdm
 
-from lightsurf.constants import WAVELENGTH_AIR
+from lightsurf.constants import APOGEE_WAVELENGTH_AIR
 
 MODULE_PATH = Path(__file__).parents[4]
 
@@ -34,7 +34,7 @@ def combine_fluxes(star_paths: list[Path]) -> tuple[pd.DataFrame, pd.DataFrame]:
             FAILED_STARS.append(star_file_path)
             continue
     star_ids = [star_path for star_path in LOADED_STARS]
-    wavelength_air = [f"{wave:.2f}" for wave in WAVELENGTH_AIR]
+    wavelength_air = [f"{wave:.2f}" for wave in APOGEE_WAVELENGTH_AIR]
     FLUX = pd.DataFrame(FLUX, columns=wavelength_air, index=star_ids)
     FAILED_STARS = pd.DataFrame(FAILED_STARS, columns=["FILE"])
     return FLUX, FAILED_STARS

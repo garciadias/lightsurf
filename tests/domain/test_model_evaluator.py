@@ -6,7 +6,10 @@ import pandas as pd
 import pytest
 from matplotlib import pyplot as plt
 
-from lightsurf.domain.interfaces.data_models.evaluation import ModelEvaluationRegression
+from lightsurf.domain.interfaces.data_models.evaluation import (
+    ModelEvaluationClassification,
+    ModelEvaluationRegression,
+)
 from lightsurf.domain.services.training_service import ModelEvaluator
 
 
@@ -62,3 +65,78 @@ def test_model_evaluation_str_method():
         )
     )
     assert isinstance(str_result, str)
+
+
+@pytest.mark.parametrize(
+    ("mae", "mse", "r2", "expected"),
+    [
+        (
+            0.5,
+            0.5,
+            0.5,
+            {"mean_absolute_error": 0.5, "mean_squared_error": 0.5, "r2_score": 0.5},
+        ),
+        (
+            0.5,
+            [0.5, 0.6],
+            0.5,
+            {
+                "mean_absolute_error": 0.5,
+                "mean_squared_error_1": 0.5,
+                "mean_squared_error_2": 0.6,
+                "r2_score": 0.5,
+            },
+        ),
+    ],
+)
+def test_interface_dump_regression(mae, mse, r2, expected):
+    regression_evaluation = ModelEvaluationRegression(
+        mean_absolute_error=mae,
+        mean_squared_error=mse,
+        r2_score=r2,
+    )
+    result_str = str(regression_evaluation)
+    assert isinstance(result_str, str)
+    assert regression_evaluation.model_dump() == expected
+
+
+@pytest.mark.parametrize(
+    ("accuracy", "precision", "recall", "f1", "expected"),
+    [
+        (
+            0.1,
+            0.5,
+            0.2,
+            0.3,
+            {
+                "accuracy": 0.1,
+                "precision": 0.5,
+                "recall": 0.2,
+                "f1_score": 0.3,
+            },
+        ),
+        (
+            0.1,
+            [0.5, 0.6],
+            0.2,
+            0.3,
+            {
+                "accuracy": 0.1,
+                "precision_1": 0.5,
+                "precision_2": 0.6,
+                "recall": 0.2,
+                "f1_score": 0.3,
+            },
+        ),
+    ],
+)
+def test_interface_dump_classification(accuracy, precision, recall, f1, expected):
+    classification_evaluation = ModelEvaluationClassification(
+        accuracy=accuracy,
+        precision=precision,
+        recall=recall,
+        f1_score=f1,
+    )
+    result_str = str(classification_evaluation)
+    assert isinstance(result_str, str)
+    assert classification_evaluation.model_dump() == expected

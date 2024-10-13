@@ -1,5 +1,6 @@
 import pytest
 
+from lightsurf.constants import *  # noqa
 from tests.fixtures.data_fixtures import *  # noqa
 from tests.fixtures.domain_fixtures import *  # noqa
 from tests.fixtures.infrastructure_fixtures import *  # noqa

@@ -7,14 +7,15 @@ class ModelEvaluationClassification(BaseModel):
     accuracy: Union[float, List[float]]
     precision: Union[float, List[float]]
     recall: Union[float, List[float]]
-    f1: Union[float, List[float]]
+    f1_score: Union[float, List[float]]
 
     def __str__(self):
-        return (
-            f"Accuracy: {self.accuracy:0.3f}, "
-            f"Precision: {self.precision:0.3f}, "
-            f"Recall: {self.recall:0.3f}, "
-            f"F1: {self.f1:0.3f}, "
+        results = self.model_dump()
+        return ", ".join(
+            [
+                f"{key.replace("_", " ").title()}: {value:0.3f}"
+                for key, value in results.items()
+            ]
         )
 
     def model_dump(self):
@@ -37,10 +38,12 @@ class ModelEvaluationRegression(BaseModel):
     r2_score: Union[float, List[float]]
 
     def __str__(self):
-        return (
-            f"mean_absolute_error: {self.mean_absolute_error:0.3f}, "
-            f"mean_square_error: {self.mean_squared_error:0.3f}, "
-            f"r2_score: {self.r2_score:0.3f}, "
+        results = self.model_dump()
+        return ", ".join(
+            [
+                f"{key.replace("_", " ").title()}: {value:0.3f}"
+                for key, value in results.items()
+            ]
         )
 
     def model_dump(self):
