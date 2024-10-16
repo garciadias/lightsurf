@@ -14,13 +14,14 @@ from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     f1_score,
-    precision_score,
-    recall_score,
-    r2_score,
-    root_mean_squared_error,
     mean_absolute_error,
+    precision_score,
+    r2_score,
+    recall_score,
+    root_mean_squared_error,
 )
 
+from lightsurf.constants import COLORS
 from lightsurf.domain.interfaces.data_models.evaluation import (
     ModelEvaluationClassification,
     ModelEvaluationRegression,
@@ -30,6 +31,85 @@ from lightsurf.domain.interfaces.training import (
     ModelRepositoryInterface,
     TrainingServiceInterface,
 )
+
+
+def bland_altman_plot(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+) -> plt.Figure:
+    """Create a Bland–Altman plot to compare the agreement between the predicted and the
+    real data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the predicted and real values to compare.
+    target : str, optional
+        The target variable to compare, by default "normalised_sales"
+    dataset_var : str, optional
+        The variable containing the dataset information, by default "dataset". This
+        variable is used to color the plot and to calculate the mean difference and the
+        standard deviation. The training dataset is not used to calculate the mean
+        difference and the standard deviation and is shown in a different color to the
+        validation dataset.
+        Systematic differences between the behavior of the training and validation
+        datasets can be identified.
+
+    Returns
+    -------
+    plt.Figure
+        The Bland–Altman plot.
+    """
+    # Bland–Altman plot
+    df = pd.DataFrame.from_dict(
+        {
+            "predicted": y_pred,
+            "test": y_true,
+        }
+    )
+    df.loc[:, "pred_test_mean"] = (df["predicted"] + df["test"]) / 2
+    df.loc[:, "pred_test_diff"] = df["predicted"] - df["test"]
+
+    fig, ax = plt.subplots(1, 1, figsize=(16 * 0.7, 9 * 0.7))
+    sns.scatterplot(
+        data=df,
+        x="pred_test_mean",
+        y="pred_test_diff",
+        palette=[COLORS["light_blue"], COLORS["red"]],
+        ax=ax,
+    )
+    mean_diff = df["pred_test_diff"].mean()
+    std_diff = df["pred_test_diff"].std()
+    ax.axhline(0, color=COLORS["green"], linestyle="-")
+    ax.axhline(mean_diff, color=COLORS["red"], linestyle="--")
+    ax.axhline(
+        mean_diff + 1.96 * std_diff,
+        color=COLORS["yellow"],
+        linestyle="--",
+    )
+    ax.axhline(
+        mean_diff - 1.96 * std_diff,
+        color=COLORS["yellow"],
+        linestyle="--",
+    )
+    ax.set_xlabel("Mean of predicted and real values", fontsize=20)
+    ax.set_ylabel("Predicted values - Real", fontsize=20)
+    ax.set_title("Bland–Altman plot", fontsize=20)
+    xlim = plt.xlim()
+    ylim = plt.ylim()
+    ax.set_ylim(-1 * max(np.abs(ylim)), max(np.abs(ylim)))
+    xlim = plt.xlim()
+    ylim = plt.ylim()
+    plt.text(
+        xlim[0] + (xlim[1] - xlim[0]) * 0.05,
+        ylim[1] - (ylim[1] - ylim[0]) * 0.1,
+        f"Validation Mean difference: {mean_diff:.3f}\n"
+        f"± 1.96 * std: {1.96 * std_diff:.3f}",
+        fontsize=16,
+        color="black",
+    )
+    plt.tight_layout()
+    return fig
 
 
 @dataclass
@@ -53,7 +133,9 @@ class ModelEvaluator:
     average: Literal["micro", "macro", "weighted", "binary", None] = None
     model_type: Literal["classification", "regression"] = "regression"
 
-    def evaluate_model(self, data_service: DataServiceInterface, model_trainer: ModelTrainer):
+    def evaluate_model(
+        self, data_service: DataServiceInterface, model_trainer: ModelTrainer
+    ):
         if self.model_type == "classification":
             self.evaluate_classification_model(data_service, model_trainer)
         elif self.model_type == "regression":
@@ -106,6 +188,7 @@ class ModelEvaluator:
             r2_score=r2,
         )
         self.indexes = self.get_train_test_indexes(data_service)
+        self.bland_altman_plot = bland_altman_plot(data_service.y_test, self.y_pred)
         return self.model_evaluation
 
     def save_evaluation(
@@ -122,6 +205,11 @@ class ModelEvaluator:
                 f"{base_path}/{identity}_confusion_matrix.png", dpi=300
             )
             plt.close(self.confusion_matrix)
+        if self.model_type == "regression":
+            self.bland_altman_plot.savefig(
+                f"{base_path}/{identity}_bland_altman_plot.png", dpi=300
+            )
+            plt.close(self.bland_altman_plot)
         self.indexes.to_csv(f"{base_path}/{identity}_train_test_split.csv", index=False)
         return evaluation_path
 
