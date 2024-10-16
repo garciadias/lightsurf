@@ -16,10 +16,14 @@ from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
+    r2_score,
+    root_mean_squared_error,
+    mean_absolute_error,
 )
 
 from lightsurf.domain.interfaces.data_models.evaluation import (
     ModelEvaluationClassification,
+    ModelEvaluationRegression,
 )
 from lightsurf.domain.interfaces.data_reader import DataServiceInterface
 from lightsurf.domain.interfaces.training import (
@@ -34,6 +38,9 @@ class ModelTrainer:
 
     def train_model(self, data_service: DataServiceInterface) -> BaseEstimator:
         print("Training model...")
+        print("Model:", self.model)
+        print("X_train shape:", data_service.X_train.shape)
+        print("y_train shape:", data_service.y_train.shape)
         self.model.fit(
             data_service.X_train,
             data_service.y_train,
@@ -44,8 +51,17 @@ class ModelTrainer:
 @dataclass
 class ModelEvaluator:
     average: Literal["micro", "macro", "weighted", "binary", None] = None
+    model_type: Literal["classification", "regression"] = "regression"
 
-    def evaluate_model(
+    def evaluate_model(self, data_service: DataServiceInterface, model_trainer: ModelTrainer):
+        if self.model_type == "classification":
+            self.evaluate_classification_model(data_service, model_trainer)
+        elif self.model_type == "regression":
+            self.evaluate_regression_model(data_service, model_trainer)
+        else:
+            raise AttributeError(f"Model type {self.model_type} is not supported")
+
+    def evaluate_classification_model(
         self, data_service: DataServiceInterface, model_trainer: ModelTrainer
     ):
         self.y_pred = model_trainer.model.predict(data_service.X_test).astype(bool)
@@ -76,6 +92,22 @@ class ModelEvaluator:
         self.indexes = self.get_train_test_indexes(data_service)
         return self.model_evaluation
 
+    def evaluate_regression_model(
+        self, data_service: DataServiceInterface, model_trainer: ModelTrainer
+    ):
+        self.y_pred = model_trainer.model.predict(data_service.X_test)
+        self.y_pred_train = model_trainer.model.predict(data_service.X_train)
+        mae = mean_absolute_error(data_service.y_test, self.y_pred)
+        rmse = root_mean_squared_error(data_service.y_test, self.y_pred)
+        r2 = r2_score(data_service.y_test, self.y_pred)
+        self.model_evaluation = ModelEvaluationRegression(
+            mean_absolute_error=mae,
+            mean_squared_error=rmse,
+            r2_score=r2,
+        )
+        self.indexes = self.get_train_test_indexes(data_service)
+        return self.model_evaluation
+
     def save_evaluation(
         self, identity: Union[str, Path], base_path: Union[str, Path]
     ) -> str:
@@ -85,10 +117,11 @@ class ModelEvaluator:
         evaluation_path = f"{base_path}/{identity}_evaluation.json"
         with open(evaluation_path, "w") as f:
             json.dump(self.model_evaluation.model_dump(), f)
-        self.confusion_matrix.savefig(
-            f"{base_path}/{identity}_confusion_matrix.png", dpi=300
-        )
-        plt.close(self.confusion_matrix)
+        if self.model_type == "classification":
+            self.confusion_matrix.savefig(
+                f"{base_path}/{identity}_confusion_matrix.png", dpi=300
+            )
+            plt.close(self.confusion_matrix)
         self.indexes.to_csv(f"{base_path}/{identity}_train_test_split.csv", index=False)
         return evaluation_path
 

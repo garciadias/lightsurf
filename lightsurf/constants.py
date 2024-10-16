@@ -5,3 +5,22 @@ WAVELENGTHS = 10.0 ** (4.179 + 6.0e-6 * np.arange(APOGEE_SPECTRUM_LENGTH))
 A = (5.792105 * 10**-2) / (238.0185 - (10**4 / WAVELENGTHS) ** 2)
 B = (1.67917 * 10**-3) / (57.362 - (10**4 / WAVELENGTHS) ** 2)
 APOGEE_WAVELENGTH_AIR = WAVELENGTHS / (1.00 + A + B)
+APOGEE_WAVELENGTH_AIR = APOGEE_WAVELENGTH_AIR[:-1]
+APOGEE_WAVELENGTH_AIR_STR = [f"{wave:.2f}" for wave in APOGEE_WAVELENGTH_AIR]
+
+APOGEE_ABUNDANCE_TARGETS = [
+    "FE_H",
+    "C_FE",
+    "O_FE",
+    "NA_FE",
+    "MG_FE",
+    "AL_FE",
+    "SI_FE",
+    "K_FE",
+    "CA_FE",
+    "TI_FE",
+    "V_FE",
+    "CR_FE",
+    "MN_FE",
+    "NI_FE",
+]

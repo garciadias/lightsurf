@@ -53,6 +53,7 @@ class DataService(DataServiceInterface):
     test_size: float = 0.2
     random_state: int = 42
     n_rows: int | None = None
+    stratify: bool = False
 
     def read(self):
         data = self.data_reader.read(self.n_rows)
@@ -69,8 +70,10 @@ class DataService(DataServiceInterface):
         self, data: DataFrame, split_by: Optional[str] = None
     ) -> Tuple[DataFrame, DataFrame, Series, Series]:
         features = self.get_features(data)
+        print(f"🧮 Data loaded with shape: {data.shape}")
         # Drop rows with null target values
         data = data.dropna(subset=[self.target])
+        print(f"🧮 Data loaded with shape after dropping null values: {data.shape}")
         X = data[features]
         y = data[self.target]
         if split_by is not None:
@@ -88,7 +91,7 @@ class DataService(DataServiceInterface):
                 y,
                 test_size=self.test_size,
                 random_state=self.random_state,
-                stratify=y,
+                stratify=y if self.stratify else None,
             )
         return X_train, X_test, y_train, y_test
 

@@ -128,3 +128,7 @@ data/raw_data/
 data/mdwarfs_DR17
 
 lightsurf/trash.py
+
+mlruns/
+
+models/

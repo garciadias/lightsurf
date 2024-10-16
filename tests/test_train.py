@@ -1,7 +1,7 @@
 import pytest
 from sklearn.model_selection import RandomizedSearchCV
 
-from lightsurf.domain.controllers.deep_controller import train_lstm_classifier
+from lightsurf.domain.controllers.deep_controller import train_lstm_regressor
 from lightsurf.domain.controllers.shallow_controller import train_xgboost_regressor
 
 
@@ -13,7 +13,7 @@ def test_xgboost_classifier():
 
 @pytest.mark.slow
 def test_lstm():
-    controller = train_lstm_classifier(n_rows=100)
+    controller = train_lstm_regressor(n_rows=100)
     assert controller is not None
     model_repository = controller.service.model_repository
     model = model_repository.load_model("model")

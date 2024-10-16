@@ -7,7 +7,7 @@ from pandas.core.frame import DataFrame
 from pandas.core.series import Series
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint  # type: ignore
-from tensorflow.keras.layers import LSTM, Dense, Dropout  # type: ignore
+from tensorflow.keras.layers import LSTM, Bidirectional, Dense  # type: ignore
 from tensorflow.keras.models import Sequential  # type: ignore
 
 
@@ -42,15 +42,12 @@ class LSTMRegressor:
 
     def _build_model(self):
         self.model = Sequential()
-        self.model.add(LSTM(100))
-        self.model.add(Dropout(0.5))
-        self.model.add(Dense(100, activation="relu"))
-        self.model.add(Dense(1, activation="softmax"))
+        self.model.add(Bidirectional(LSTM(self.lstm_units, dropout=self.dropout))),
+        self.model.add(Dense(self.dense_units, activation="relu"))
+        self.model.add(Dense(1))
 
     def _compile_model(self):
-        self.model.compile(
-            loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
-        )
+        self.model.compile(loss="mse", optimizer="adam", metrics=["mse"])
 
     def get_sequence_data(
         self,
@@ -92,7 +89,7 @@ class LSTMRegressor:
         y_target_data = []
         if group_by is None:
             for i in range(len(data) - n_steps):
-                X_sequence_data.append(data.iloc[i : i + n_steps][X.columns].values)
+                X_sequence_data.append(data.iloc[i:i + n_steps][X.columns].values)
                 import pdb
 
                 pdb.set_trace()  # noqa
@@ -101,7 +98,7 @@ class LSTMRegressor:
         for _, group in data.groupby(group_by):
             group = group.sort_values(sequence_split_by)
             for i in range(len(group) - n_steps):
-                X_sequence_data.append(group.iloc[i : i + n_steps][X.columns].values)
+                X_sequence_data.append(group.iloc[i:i + n_steps][X.columns].values)
                 y_target_data.append(group.iloc[i + n_steps][str(y.name)])
         return np.array(X_sequence_data), np.array(y_target_data)
 
@@ -109,7 +106,7 @@ class LSTMRegressor:
         self,
         X_train: DataFrame,
         y_train: Series,
-        sequence_split_by=["CatEdition"],
+        sequence_split_by: Optional[Union[str, List[str]]] = None,
         val_size: float = 0.2,
     ):
         x_train_, x_val, y_train_, y_val = train_test_split(
@@ -119,10 +116,14 @@ class LSTMRegressor:
             x_train_, y_train_ = self.get_sequence_data(
                 X_train, y_train, sequence_split_by
             )
+        else:
+            x_train_ = x_train_.values.reshape(x_train_.shape[0], 1, x_train_.shape[1])
+            x_val = x_val.values.reshape(x_val.shape[0], 1, x_val.shape[1])
+            y_train_, y_val = y_train_.values, y_val.values
         self.model.summary()
         self.model.fit(
-            x_train_,
-            y_train_,
+            x_train_.astype("float32"),
+            y_train_.astype("float32"),
             validation_data=(x_val.astype("float32"), y_val.astype("float32")),
             epochs=self.epochs,
             batch_size=self.batch_size,
@@ -132,7 +133,7 @@ class LSTMRegressor:
 
     def predict(self, X: Union[DataFrame, np.ndarray[Any, Any]]):
         if isinstance(X, DataFrame):
-            X = X.values
+            X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
         return self.model.predict(X.astype("float32")).flatten()
 
     def get_params(self, deep: bool = False):
@@ -157,9 +158,9 @@ class LSTMRegressor:
     ):
         # Return the validation loss
         if isinstance(X, DataFrame):
-            X = X.values
+            X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
         if isinstance(y, Series):
-            y = y.values
+            y = y.values.astype("float32")
         results = self.model.evaluate(X.astype("float32"), y.astype("float32"))
         self.model.summary()
         print(

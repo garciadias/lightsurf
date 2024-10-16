@@ -45,6 +45,7 @@ def create_model_controller(
     data_reader: DataReaderInterface,
     target_variable: str,
     model: BaseEstimator,
+    features: list[str] | None = None,
     model_path: str = "data/models/",
     output_filetype: Literal["pkl"] = "pkl",
     test_size: float = 0.2,
@@ -59,6 +60,7 @@ def create_model_controller(
     data_service = DataService(
         data_reader=data_reader,
         target=target_variable,
+        features=features,
         test_size=test_size,
         random_state=random_state,
         n_rows=n_rows,
@@ -80,8 +82,6 @@ def create_model_controller(
         model_trainer=model_trainer,
         model_evaluator=model_evaluator,
         feature_selector=feature_selector,
-        split_by=split_by,
-        sequence_split_by=sequence_split_by,
     )
     controller = TrainingController(training_service)
     return controller

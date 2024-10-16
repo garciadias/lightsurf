@@ -2,34 +2,40 @@ from pathlib import Path
 from typing import Optional
 
 import mlflow
+import pandera as pa
 from sklearn.model_selection import RandomizedSearchCV
 
+from lightsurf.constants import APOGEE_WAVELENGTH_AIR
 from lightsurf.domain.controllers.controller import create_model_controller
+from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
 from lightsurf.domain.models.deep_models import LSTMRegressor
 from lightsurf.domain.services.data.data_service import (
     FileDataReader,
 )
 
 global random_state
-random_state = 31869
+random_state = 1989
 
 
 def run_deep_experiment(
     model,
     input_path: str,
     model_path: str,
-    schema_path: str,
+    schema: str | pa.DataFrameSchema,
+    target_variable: str = "FE_H",
     run_name="Deep Experiment",
     n_rows: Optional[int] = 100,
 ):
     data_reader = FileDataReader(
         input_path,
-        schema=schema_path,
+        schema=schema,
     )
 
     params = {
         "data_reader": data_reader,
-        "target_variable": "DiscontinuedTF",
+        "target_variable": target_variable,
+        "features": [f"{wave:.2f}" for wave in APOGEE_WAVELENGTH_AIR]
+        + [target_variable],
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,
@@ -59,13 +65,18 @@ def run_deep_experiment(
     return controller
 
 
-def train_lstm_classifier(n_rows=1000):
-    module_path = Path(__file__).parents[1]
-    input_path = f"{module_path}/data/merged_data.csv"
-    schemas_path = f"{module_path}/lightsurf/domain/interfaces/schemas/"
-    schema_path = f"{schemas_path}/merged_data.yaml"
-    model_path = f"{module_path}/data/deep_models/"
-    checkpoint_path = Path(f"{module_path}/data/deep_models/")
+def train_lstm_regressor(
+    n_rows=1000,
+    input_path="data/raw_data/flux.csv",
+    schema: str | Path = "",
+    target_variable="FE_H",
+):
+    module_path = Path(__file__).parents[3]
+    input_path = f"{module_path}/{input_path}"
+    if schema in SCHEMA_DICT:
+        schema = SCHEMA_DICT[schema]
+    model_path = f"{module_path}/models/deep_models/"
+    checkpoint_path = Path(f"{module_path}/models/deep_models/")
     checkpoint_path.mkdir(parents=True, exist_ok=True)
     checkpoint_path = f"{checkpoint_path}/lstm_regressor.keras"
     lstm_regressor = LSTMRegressor(
@@ -93,5 +104,6 @@ def train_lstm_classifier(n_rows=1000):
         n_rows=n_rows,
         input_path=input_path,
         model_path=model_path,
-        schema_path=schema_path,
+        schema=schema,
+        target_variable=target_variable,
     )
