@@ -14,7 +14,7 @@ from lightsurf.domain.services.data.data_service import (
 )
 
 global random_state
-random_state = 1989
+random_state = 1990
 
 
 def run_deep_experiment(
@@ -49,7 +49,7 @@ def run_deep_experiment(
     mlflow.set_experiment("lightsurf")
     with mlflow.start_run(run_name=run_name):
         controller = create_model_controller(**params)
-        mlflow.log_params(params)
+        # mlflow.log_params(params)
         controller.train()
         model = controller.model
 
@@ -59,6 +59,7 @@ def run_deep_experiment(
         best_estimator = controller.service.model_trainer.model.best_estimator_
         mlflow.tensorflow.log_model(best_estimator.model, "best_estimator")
         best_params = controller.service.model_trainer.model.best_params_
+        del best_params["features"]
         mlflow.log_params({"best_params": best_params})
 
         mlflow.log_artifacts(model_path)
@@ -85,15 +86,15 @@ def train_lstm_regressor(
     model = RandomizedSearchCV(
         lstm_regressor,
         param_distributions={
-            "lstm_units": [64, 128, 256, 512, 1024, 2048, 4096, 8192],
-            "dense_units": [64, 128, 256, 512, 1024, 2048, 4096, 8192],
-            "dropout": [0.1, 0.2, 0.3, 0.4, 0.5],
+            "lstm_units": [64, 128, 256, 512, 1024, 2048],
+            "dense_units": [64, 128, 256, 512, 1024, 2048],
+            "dropout": [0.1, 0.2, 0.3],
             "epochs": [100],
-            "batch_size": [100, 200, 500, 1000],
+            "batch_size": [100, 200, 300],
             "verbose": [1],
             "random_state": [random_state],
         },
-        n_iter=250,
+        n_iter=100,
         n_jobs=1,
         cv=2,
         random_state=random_state,

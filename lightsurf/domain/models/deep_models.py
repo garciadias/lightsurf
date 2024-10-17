@@ -40,6 +40,16 @@ class LSTMRegressor:
         self._build_model()
         self._compile_model()
 
+    def __repr__(self):
+        string_components = [
+            f"LSTMRegressor(lstm_units={self.lstm_units},",
+            f"dense_units={self.dense_units},",
+            f"dropout={self.dropout},",
+            f"epochs={self.epochs}, batch_size={self.batch_size},",
+            f"verbose={self.verbose}, random_state={self.random_state})",
+        ]
+        return " ".join(string_components)
+
     def _build_model(self):
         self.model = Sequential()
         self.model.add(Bidirectional(LSTM(self.lstm_units, dropout=self.dropout))),
@@ -109,6 +119,7 @@ class LSTMRegressor:
         sequence_split_by: Optional[Union[str, List[str]]] = None,
         val_size: float = 0.2,
     ):
+        print(self)
         x_train_, x_val, y_train_, y_val = train_test_split(
             X_train, y_train, test_size=val_size, random_state=self.random_state
         )
