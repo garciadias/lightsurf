@@ -1,11 +1,16 @@
+from pathlib import Path
+
 import mlflow
 import pandas as pd
+import pandera as pa
 from xgboost import XGBRegressor
 
+from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
 from lightsurf.domain.controllers.controller import (
     RANDOM_STATE,
     create_model_controller,
 )
+from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
 from lightsurf.domain.services.data.data_service import (
     FileDataReader,
 )
@@ -13,20 +18,22 @@ from lightsurf.domain.services.data.data_service import (
 
 def run_shallow_experiment(
     model,
+    target_variable: str,
     input_path: str,
     model_path: str,
-    schema_path: str,
+    schema: str | Path | pa.DataFrameSchema,
     run_name="Shallow Experiment",
     n_rows=1000,
     feature_selection="select_from_model",
 ):
     data_reader = FileDataReader(
         input_path,
-        schema=schema_path,
+        schema=schema,
     )
     params = {
         "data_reader": data_reader,
-        "target_variable": "DiscontinuedTF",
+        "target_variable": target_variable,
+        "features": APOGEE_WAVELENGTH_AIR_STR + [target_variable],
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,
@@ -66,25 +73,21 @@ def run_shallow_experiment(
     return controller
 
 
-def train_xgboost_regressor(n_rows=1000):
-    model = XGBRegressor(
-        objective="multi:softmax",
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=3,
-        min_child_weight=1,
-        gamma=0,
-        subsample=1,
-        colsample_bytree=1,
-        reg_alpha=0,
-        reg_lambda=1,
-    )
-
+def train_xgboost_regressor(
+    n_rows=1000,
+    input_path="data/raw_data/flux_abundances.csv",
+    schema: str | Path = "",
+    target_variable="FE_H",
+):
+    model = XGBRegressor(random_state=RANDOM_STATE)
+    if schema in SCHEMA_DICT:
+        schema = SCHEMA_DICT[schema]
     return run_shallow_experiment(
         model=model,
-        input_path="data/merged_data.csv",
+        target_variable=target_variable,
+        input_path=input_path,
         model_path="data/models/",
-        schema_path="lightsurf/domain/interfaces/schemas/merged_data.yaml",
-        run_name="XGBClassifier",
+        schema=schema,
+        run_name="XGBRegressor",
         n_rows=n_rows,
     )

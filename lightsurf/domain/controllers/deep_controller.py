@@ -5,7 +5,7 @@ import mlflow
 import pandera as pa
 from sklearn.model_selection import RandomizedSearchCV
 
-from lightsurf.constants import APOGEE_WAVELENGTH_AIR
+from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
 from lightsurf.domain.controllers.controller import create_model_controller
 from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
 from lightsurf.domain.models.deep_models import LSTMRegressor
@@ -21,7 +21,7 @@ def run_deep_experiment(
     model,
     input_path: str,
     model_path: str,
-    schema: str | pa.DataFrameSchema,
+    schema: str | Path | pa.DataFrameSchema,
     target_variable: str = "FE_H",
     run_name="Deep Experiment",
     n_rows: Optional[int] = 100,
@@ -34,8 +34,7 @@ def run_deep_experiment(
     params = {
         "data_reader": data_reader,
         "target_variable": target_variable,
-        "features": [f"{wave:.2f}" for wave in APOGEE_WAVELENGTH_AIR]
-        + [target_variable],
+        "features": APOGEE_WAVELENGTH_AIR_STR + [target_variable],
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,
@@ -86,11 +85,11 @@ def train_lstm_regressor(
     model = RandomizedSearchCV(
         lstm_regressor,
         param_distributions={
-            "lstm_units": [64, 128, 256, 512, 1024, 2048],
-            "dense_units": [64, 128, 256, 512, 1024, 2048],
+            "lstm_units": [64, 128, 256, 512],
+            "dense_units": [64, 128, 256, 512],
             "dropout": [0.1, 0.2, 0.3],
             "epochs": [100],
-            "batch_size": [100, 200, 300],
+            "batch_size": [50, 100, 200],
             "verbose": [1],
             "random_state": [random_state],
         },

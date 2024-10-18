@@ -32,6 +32,7 @@ mypy = "^1.11.2"
 ruff = "^0.6.9"
 ipykernel = "^6.29.5"
 frictionless = "^5.18.0"
+pyqt5 = "^5.15.11"
 
 [build-system]
 requires = ["poetry-core"]

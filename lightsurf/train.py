@@ -9,7 +9,7 @@ from lightsurf.domain.controllers.shallow_controller import train_xgboost_regres
 @click.option(
     "--m",
     default="lstm",
-    help="Define the model to train. Options: " "lstm or xgb_classifier",
+    help="Define the model to train. Options: lstm or xgb",
 )
 @click.option(
     "--n_rows",
@@ -36,7 +36,7 @@ from lightsurf.domain.controllers.shallow_controller import train_xgboost_regres
 def train(m, n_rows, input_path, schema, target_variable):
     MODELS = {
         "lstm": train_lstm_regressor,
-        "xgb_classifier": train_xgboost_regressor,
+        "xgb": train_xgboost_regressor,
     }
     model = MODELS[m]
     print(f"Training {m} model with {n_rows} rows.")
