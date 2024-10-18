@@ -11,18 +11,18 @@ APOGEE_WAVELENGTH_AIR_STR = [f"{wave:.2f}" for wave in APOGEE_WAVELENGTH_AIR]
 APOGEE_ABUNDANCE_TARGETS = [
     "FE_H",
     "C_FE",
-    "O_FE",
-    "NA_FE",
-    "MG_FE",
-    "AL_FE",
-    "SI_FE",
-    "K_FE",
     "CA_FE",
-    "TI_FE",
-    "V_FE",
-    "CR_FE",
-    "MN_FE",
+    "K_FE",
+    "MG_FE",
     "NI_FE",
+    "O_FE",
+    "SI_FE",
+    "TI_FE",
+    # "AL_FE",
+    # "CR_FE",
+    # "MN_FE",
+    # "NA_FE",
+    # "V_FE",
 ]
 
 COLORS = {

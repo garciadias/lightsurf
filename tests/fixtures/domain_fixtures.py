@@ -1,9 +1,6 @@
 import pytest
 
-from lightsurf.domain.services.data.data_service import (
-    DataService,
-    FileDataReader,
-)
+from lightsurf.domain.services.data.data_service import DataService, FileDataReader
 from lightsurf.domain.services.training_service import (
     FeatureSelector,
     FileModelRepository,

@@ -11,9 +11,7 @@ from lightsurf.domain.controllers.controller import (
     create_model_controller,
 )
 from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
-from lightsurf.domain.services.data.data_service import (
-    FileDataReader,
-)
+from lightsurf.domain.services.data.data_service import FileDataReader
 
 
 def run_shallow_experiment(

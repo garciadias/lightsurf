@@ -6,9 +6,7 @@ from sklearn.base import BaseEstimator
 
 from lightsurf.domain.interfaces.data_reader import DataReaderInterface
 from lightsurf.domain.interfaces.training import Controller
-from lightsurf.domain.services.data.data_service import (
-    DataService,
-)
+from lightsurf.domain.services.data.data_service import DataService
 from lightsurf.domain.services.training_service import (
     FeatureSelector,
     FileModelRepository,
@@ -54,9 +52,7 @@ def create_model_controller(
     str_threshold: str = "mean",
     n_rows: Optional[int] = None,
     feature_selection: Optional[str] = "select_from_model",
-    split_by: Optional[str] = None,
-    sequence_split_by: Optional[str] = None,
-):
+) -> TrainingController:
     data_service = DataService(
         data_reader=data_reader,
         target=target_variable,

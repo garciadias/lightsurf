@@ -1,4 +1,6 @@
-from typing import Any, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -6,35 +8,31 @@ from pandas.api.extensions import ExtensionArray
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint  # type: ignore
-from tensorflow.keras.layers import LSTM, Bidirectional, Dense  # type: ignore
-from tensorflow.keras.models import Sequential  # type: ignore
+from tensorflow import keras as tfk
 
 
+@dataclass
 class LSTMRegressor:
-    def __init__(
-        self,
-        checkpoint_path,
-        lstm_units: int = 250,
-        dense_units: int = 128,
-        dropout: float = 0.2,
-        epochs: int = 100,
-        batch_size: int = 32,
-        verbose: int = 1,
-        random_state: int = 42,
-    ):
-        self.checkpoint_path = checkpoint_path
-        self.lstm_units = lstm_units
-        self.dense_units = dense_units
-        self.dropout = dropout
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.verbose = verbose
-        self.random_state = random_state
+    checkpoint_path: str | Path
+    output_dimension: int = 1
+    loss: Literal["mse", "mae"] = "mse"
+    lstm_units: int = 250
+    dense_units: int = 128
+    learning_rate: float = 0.001
+    dropout: float = 0.2
+    epochs: int = 100
+    batch_size: int = 32
+    verbose: int = 1
+    random_state: int = 42
+    beta_1: float = 0.9
+    beta_2: float = 0.999
+    epsilon: float = 1e-07
+
+    def __post_init__(self):
         self.callbacks = [
-            EarlyStopping(monitor="val_loss", patience=5),
-            ModelCheckpoint(
-                checkpoint_path, save_best_only=True, save_weights_only=False
+            tfk.callbacks.EarlyStopping(monitor="val_loss", patience=5),
+            tfk.callbacks.ModelCheckpoint(
+                self.checkpoint_path, save_best_only=True, save_weights_only=False
             ),
         ]
         self._build_model()
@@ -51,13 +49,27 @@ class LSTMRegressor:
         return " ".join(string_components)
 
     def _build_model(self):
-        self.model = Sequential()
-        self.model.add(Bidirectional(LSTM(self.lstm_units, dropout=self.dropout))),
-        self.model.add(Dense(self.dense_units, activation="relu"))
-        self.model.add(Dense(1))
+        lstm_layer = tfk.layers.LSTM(self.lstm_units, dropout=self.dropout)
+        dense_layer = tfk.layers.Dense(self.dense_units, activation="relu")
+        output_layer = tfk.layers.Dense(self.output_dimension)
+
+        self.model = tfk.models.Sequential()
+        self.model.add(lstm_layer),
+        self.model.add(dense_layer)
+        self.model.add(output_layer)
 
     def _compile_model(self):
-        self.model.compile(loss="mse", optimizer="adam", metrics=["mse"])
+        optmizer = tfk.optimizers.Adam(
+            learning_rate=self.learning_rate,
+            beta_1=self.beta_1,
+            beta_2=self.beta_2,
+            epsilon=self.epsilon,
+        )
+        self.model.compile(
+            loss=self.loss,
+            optimizer=optmizer,
+            metrics=[self.loss],
+        )
 
     def get_sequence_data(
         self,

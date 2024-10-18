@@ -3,15 +3,12 @@ from typing import Optional
 
 import mlflow
 import pandera as pa
-from sklearn.model_selection import RandomizedSearchCV
 
 from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
 from lightsurf.domain.controllers.controller import create_model_controller
 from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
 from lightsurf.domain.models.deep_models import LSTMRegressor
-from lightsurf.domain.services.data.data_service import (
-    FileDataReader,
-)
+from lightsurf.domain.services.data.data_service import FileDataReader
 
 global random_state
 random_state = 1990
@@ -42,8 +39,6 @@ def run_deep_experiment(
         "n_rows": n_rows,
         "feature_selection": None,
         "output_filetype": "pkl",
-        "split_by": "ProductKey",
-        "sequence_split_by": ["CatEdition"],
     }
     mlflow.set_experiment("lightsurf")
     with mlflow.start_run(run_name=run_name):
@@ -55,11 +50,16 @@ def run_deep_experiment(
         mlflow.sklearn.log_model(model, "model")
         metrics = controller.service.model_evaluator.model_evaluation.model_dump()
         mlflow.log_metrics(metrics)
-        best_estimator = controller.service.model_trainer.model.best_estimator_
-        mlflow.tensorflow.log_model(best_estimator.model, "best_estimator")
-        best_params = controller.service.model_trainer.model.best_params_
-        del best_params["features"]
-        mlflow.log_params({"best_params": best_params})
+        if hasattr(controller.service.model_trainer.model, "best_estimator_"):
+            best_estimator = controller.service.model_trainer.model.best_estimator_
+            mlflow.tensorflow.log_model(best_estimator.model, "best_estimator")
+            best_params = controller.service.model_trainer.model.best_params_
+            del best_params["features"]
+            mlflow.log_params({"best_params": best_params})
+        else:
+            mlflow.tensorflow.log_model(
+                controller.service.model_trainer.model.model, "Model"
+            )
 
         mlflow.log_artifacts(model_path)
     return controller
@@ -82,24 +82,24 @@ def train_lstm_regressor(
     lstm_regressor = LSTMRegressor(
         checkpoint_path,
     )
-    model = RandomizedSearchCV(
-        lstm_regressor,
-        param_distributions={
-            "lstm_units": [64, 128, 256, 512],
-            "dense_units": [64, 128, 256, 512],
-            "dropout": [0.1, 0.2, 0.3],
-            "epochs": [100],
-            "batch_size": [50, 100, 200],
-            "verbose": [1],
-            "random_state": [random_state],
-        },
-        n_iter=100,
-        n_jobs=1,
-        cv=2,
-        random_state=random_state,
-    )
+    # model = RandomizedSearchCV(
+    #     lstm_regressor,
+    #     param_distributions={
+    #         "lstm_units": [64, 128, 256, 512],
+    #         "dense_units": [64, 128, 256, 512],
+    #         "dropout": [0.1, 0.2, 0.3],
+    #         "epochs": [100],
+    #         "batch_size": [50, 100, 200],
+    #         "verbose": [1],
+    #         "random_state": [random_state],
+    #     },
+    #     n_iter=100,
+    #     n_jobs=1,
+    #     cv=2,
+    #     random_state=random_state,
+    # )
     return run_deep_experiment(
-        model,
+        lstm_regressor,
         run_name="LSTM",
         n_rows=n_rows,
         input_path=input_path,

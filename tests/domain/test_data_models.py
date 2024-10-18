@@ -2,10 +2,7 @@ import numpy as np
 import pytest
 
 from lightsurf.constants import APOGEE_SPECTRUM_LENGTH
-from lightsurf.domain.interfaces.data_models.input import (
-    APOGEESpectrum,
-    Spectrum,
-)
+from lightsurf.domain.interfaces.data_models.input import APOGEESpectrum, Spectrum
 
 
 def test_spectrum():
