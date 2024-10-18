@@ -46,6 +46,8 @@ def run_shallow_experiment(
     mlflow.set_experiment("lightsurf")
     with mlflow.start_run(run_name=run_name):
         controller = create_model_controller(**params)
+        del params["features"]
+        del params["data_reader"]
         mlflow.log_params(params)
         controller.train()
         model = controller.model

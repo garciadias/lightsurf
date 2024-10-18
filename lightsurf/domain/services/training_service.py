@@ -81,33 +81,41 @@ def bland_altman_plot(
     mean_diff = df["pred_test_diff"].mean()
     std_diff = df["pred_test_diff"].std()
     ax.axhline(0, color=COLORS["green"], linestyle="-")
-    ax.axhline(mean_diff, color=COLORS["red"], linestyle="--")
+    ax.axhline(
+        mean_diff,
+        color=COLORS["red"],
+        linestyle="--",
+        label="$\\mu_{X_{Pred} - X_{True}}$" + f"{mean_diff:.3f}",
+    )
     ax.axhline(
         mean_diff + 1.96 * std_diff,
         color=COLORS["yellow"],
         linestyle="--",
+        label=f"$\\pm 1.96 \\sigma = ${1.96 * std_diff:.3f}",
     )
     ax.axhline(
         mean_diff - 1.96 * std_diff,
         color=COLORS["yellow"],
         linestyle="--",
     )
-    ax.set_xlabel("Mean of predicted and real values", fontsize=20)
-    ax.set_ylabel("Predicted values - Real", fontsize=20)
+    ax.set_xlabel("$\\frac{X_{True} + X_{Pred}}{2}$", fontsize=20)
+    ax.set_ylabel("$X_{Pred} - X_{True}$", fontsize=20)
     ax.set_title("Bland–Altman plot", fontsize=20)
     xlim = plt.xlim()
     ylim = plt.ylim()
     ax.set_ylim(-1 * max(np.abs(ylim)), max(np.abs(ylim)))
     xlim = plt.xlim()
     ylim = plt.ylim()
+    mae = np.abs(df["pred_test_diff"]).mean()
+    mse = (df["pred_test_diff"] ** 2).mean()
     plt.text(
         xlim[0] + (xlim[1] - xlim[0]) * 0.05,
         ylim[1] - (ylim[1] - ylim[0]) * 0.1,
-        f"Validation Mean difference: {mean_diff:.3f}\n"
-        f"± 1.96 * std: {1.96 * std_diff:.3f}",
+        f"$\\sigma =${std_diff:.3f}\n$MAE =${mae:.3f}\n$MSE =${mse:.3f}",
         fontsize=16,
         color="black",
     )
+    plt.legend()
     plt.tight_layout()
     return fig
 
