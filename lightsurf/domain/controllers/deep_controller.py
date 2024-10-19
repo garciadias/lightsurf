@@ -31,7 +31,7 @@ def run_deep_experiment(
     params = {
         "data_reader": data_reader,
         "target_variable": target_variable,
-        "features": APOGEE_WAVELENGTH_AIR_STR + [target_variable],
+        "features": APOGEE_WAVELENGTH_AIR_STR[1000:-1000] + [target_variable],
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,

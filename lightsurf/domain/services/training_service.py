@@ -75,7 +75,6 @@ def bland_altman_plot(
         data=df,
         x="pred_test_mean",
         y="pred_test_diff",
-        palette=[COLORS["light_blue"], COLORS["red"]],
         ax=ax,
     )
     mean_diff = df["pred_test_diff"].mean()
