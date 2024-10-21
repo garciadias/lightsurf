@@ -19,7 +19,7 @@ def run_shallow_experiment(
     target_variable: str,
     input_path: str,
     model_path: str,
-    schema: str | Path | pa.DataFrameSchema,
+    schema: str | Path | pa.DataFrameSchema | None,
     run_name="Shallow Experiment",
     n_rows=1000,
     feature_selection="select_from_model",
@@ -51,7 +51,9 @@ def run_shallow_experiment(
         model = controller.model
         features = controller.service.data_service.X_train.columns.tolist()
         if feature_selection:
-            selected_features = controller.service.feature_selector.selected_features_
+            selected_features = getattr(
+                controller.service.feature_selector, "selected_features_", features
+            )
             n_features = len(features)
             n_selected_features = len(selected_features)
             selected_features = "\n".join(selected_features)
@@ -76,12 +78,13 @@ def run_shallow_experiment(
 def train_xgboost_regressor(
     n_rows=1000,
     input_path="data/raw_data/flux_abundances.csv",
-    schema: str | Path = "",
+    schema: str | Path | pa.DataFrameSchema | None = "",
     target_variable="FE_H",
 ):
     model = XGBRegressor(random_state=RANDOM_STATE)
-    if schema in SCHEMA_DICT:
-        schema = SCHEMA_DICT[schema]
+    if isinstance(schema, str):
+        if schema in SCHEMA_DICT:
+            schema = SCHEMA_DICT.get(schema)
     return run_shallow_experiment(
         model=model,
         target_variable=target_variable,

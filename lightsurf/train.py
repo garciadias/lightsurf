@@ -1,15 +1,18 @@
 import click
 
 from lightsurf.constants import APOGEE_ABUNDANCE_TARGETS
-from lightsurf.domain.controllers.deep_controller import train_lstm_regressor
+from lightsurf.domain.controllers.deep_controller import (
+    train_cnn_lstm_regressor,
+    train_lstm_regressor,
+)
 from lightsurf.domain.controllers.shallow_controller import train_xgboost_regressor
 
 
 @click.command()
 @click.option(
     "--m",
-    default="lstm",
-    help="Define the model to train. Options: lstm or xgb",
+    default="cnn_lstm",
+    help="Define the model to train. Options: cnn_lstm or xgb",
 )
 @click.option(
     "--n_rows",
@@ -36,6 +39,7 @@ from lightsurf.domain.controllers.shallow_controller import train_xgboost_regres
 def train(m, n_rows, input_path, schema, target_variable):
     MODELS = {
         "lstm": train_lstm_regressor,
+        "cnn_lstm": train_cnn_lstm_regressor,
         "xgb": train_xgboost_regressor,
     }
     model = MODELS[m]

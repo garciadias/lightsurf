@@ -17,7 +17,7 @@ from lightsurf.domain.interfaces.data_reader import (
 @dataclass
 class FileDataReader(DataReaderInterface):
     path: Union[Path, str]
-    schema: Union[pa.DataFrameSchema, str, Path]
+    schema: Union[pa.DataFrameSchema, str, Path, None]
     read_function: Callable = pd.read_csv
 
     def __post_init__(self):
@@ -35,7 +35,8 @@ class FileDataReader(DataReaderInterface):
             with open(self.schema, "r") as file:
                 schema_yaml = file.read()
             self.schema = pa.DataFrameSchema.from_yaml(schema_yaml)
-        df = self.schema(df)
+        if self.schema is not None:
+            df = self.schema(df)
         if "id" in df.columns:
             df.set_index("id", inplace=True)
         return df

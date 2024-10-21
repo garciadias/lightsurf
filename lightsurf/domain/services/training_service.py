@@ -139,6 +139,9 @@ class ModelTrainer:
 class ModelEvaluator:
     average: Literal["micro", "macro", "weighted", "binary", None] = None
     model_type: Literal["classification", "regression"] = "regression"
+    model_evaluation: ModelEvaluationClassification | ModelEvaluationRegression = field(
+        init=False
+    )
 
     def evaluate_model(
         self, data_service: DataServiceInterface, model_trainer: ModelTrainer
@@ -153,16 +156,14 @@ class ModelEvaluator:
     def evaluate_classification_model(
         self, data_service: DataServiceInterface, model_trainer: ModelTrainer
     ):
-        self.y_pred = model_trainer.model.predict(data_service.X_test).astype(bool)
+        self.y_pred = model_trainer.model.predict(data_service.X_test)
         self.y_pred = pd.Series(
             self.y_pred, index=data_service.test_index[: len(self.y_pred)]
-        ).astype(bool)
-        self.y_pred_train = model_trainer.model.predict(data_service.X_train).astype(
-            bool
         )
+        self.y_pred_train = model_trainer.model.predict(data_service.X_train)
         self.y_pred_train = pd.Series(
             self.y_pred_train, index=data_service.train_index[: len(self.y_pred_train)]
-        ).astype(bool)
+        )
         accuracy = accuracy_score(data_service.y_test, self.y_pred)
         precision = precision_score(
             data_service.y_test, self.y_pred, average=self.average
@@ -195,6 +196,9 @@ class ModelEvaluator:
             r2_score=r2,
         )
         self.indexes = self.get_train_test_indexes(data_service)
+        print("Creating bland altman plot")
+        print("y_test shape:", data_service.y_test.shape)
+        print("y_pred shape:", self.y_pred.shape)
         self.bland_altman_plot = bland_altman_plot(data_service.y_test, self.y_pred)
         return self.model_evaluation
 

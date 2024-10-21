@@ -9,7 +9,7 @@ from pandera import DataFrameSchema
 
 
 class DataReaderInterface(ABC):
-    schema: Union[DataFrameSchema, str, Path]
+    schema: Union[DataFrameSchema, str, Path, None]
 
     @abstractmethod
     def read(self, n_rows: Optional[int]) -> DataFrame: ...

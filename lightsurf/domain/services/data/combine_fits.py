@@ -18,7 +18,7 @@ def extract_flux(star_file_path: str) -> list:
     return flux
 
 
-def extract_abundances(star_list_fits_file_path: str | Path) -> list:
+def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     dr = load_star_list(star_list_fits_file_path)
     abundances = [dr[var] for var in APOGEE_ABUNDANCE_TARGETS]
     abundances = pd.DataFrame(
