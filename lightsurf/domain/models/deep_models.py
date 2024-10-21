@@ -11,6 +11,19 @@ from pandas.core.series import Series
 from sklearn.model_selection import train_test_split
 from tensorflow import keras as tfk
 
+# Check if GPU is available
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Set memory growth to avoid allocating all memory at once
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"GPUs {gpus} are available and memory growth is set.")
+    except RuntimeError as e:
+        print(e)
+else:
+    print("No GPU found. Using CPU.")
+
 
 class AttentionLayer(tfk.layers.Layer):
     def __init__(self, **kwargs):
