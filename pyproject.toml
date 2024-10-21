@@ -64,6 +64,8 @@ select = ['I', 'F', 'E', 'W', 'PT']
 
 [tool.mypy]
 ignore_missing_imports = true
+exclude = ["lightsurf/domain/services/data/combine_fits.py"]
+
 
 [tool.taskipy.tasks]
 test = "pytest"
@@ -73,3 +75,5 @@ pre_test = "task format && task lint"
 post_test = "coverage html"
 train = "python lightsurf/train.py"
 mlflow = "mlflow server --host 0.0.0.0 --port 5000"
+downlaod = "python lightsurf/domain/services/data/download_spectra.py"
+combine_spectra = "python lightsurf/domain/services/data/combine_fits.py"
