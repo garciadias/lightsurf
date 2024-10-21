@@ -1,4 +1,5 @@
 import logging
+import gc
 from pathlib import Path
 
 import click
@@ -13,9 +14,12 @@ MODULE_PATH = Path(__file__).parents[4]
 
 
 def extract_flux(star_file_path: str) -> list:
-    star_spec = fits.open(star_file_path)
-    flux = star_spec[1].data
-    return flux
+    hdul  = fits.open(star_file_path)
+    image_data = hdul[1].data.copy()
+    hdul.close()
+    gc.collect()
+
+    return image_data
 
 
 def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
