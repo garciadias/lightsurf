@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from pandas.api.extensions import ExtensionArray
 from pandas.core.frame import DataFrame
@@ -88,7 +87,7 @@ class CnnLstmAttentionModel:
         )
         return f"{model_name}({parameters})"
 
-    def create_cnn_lstm_am(self, input_shape) -> tfk.Model:
+    def _build_model(self, input_shape) -> tfk.Model:
         # Input layer
         inputs = tfk.layers.Input(shape=input_shape)
 
@@ -105,7 +104,6 @@ class CnnLstmAttentionModel:
         else:
             cnn_filters = self.cnn_filters
         # CNN layers
-
         for i, filter_dim in enumerate(cnn_filters):
             if i == 0:
                 x = tfk.layers.Conv1D(
@@ -146,7 +144,6 @@ class CnnLstmAttentionModel:
 
         # Output layer for regression task
         output = tfk.layers.Dense(1)(x)
-
         # Define the model
         model = tfk.models.Model(inputs, output, name="cnn_lstm_attention_model")
 
@@ -180,7 +177,7 @@ class CnnLstmAttentionModel:
         n_features = X_train.shape[1]
         train_data = X_train.values.reshape(n_stars, 1, n_features).astype('float32')
         train_labels = y_train.values.astype('float32')
-        self.model = self.create_cnn_lstm_am((1, n_features))
+        self.model = self._build_model((1, n_features))
         optimizer = self._create_optimizer()
         self._compile(optimizer=optimizer, loss=self.loss, metrics=self.loss_metrics)
         self.model.summary()
@@ -243,7 +240,7 @@ class CnnLstmAttentionModel:
 class LSTMRegressor:
     checkpoint_path: str | Path
     output_dimension: int = 1
-    loss: Literal["mse", "mae"] = "mse"
+    loss: Literal["mse", "mae"] = "mae"
     lstm_units: int = 250
     dense_units: int = 128
     learning_rate: float = 0.001
@@ -255,19 +252,7 @@ class LSTMRegressor:
     beta_1: float = 0.9
     beta_2: float = 0.999
     epsilon: float = 1e-07
-
-    def __post_init__(self):
-        raise NotImplementedError(
-            "This class is not implemented yet. There are a few bugs in the code."
-        )
-        self.callbacks = [
-            tfk.callbacks.EarlyStopping(monitor="val_loss", patience=5),
-            tfk.callbacks.ModelCheckpoint(
-                self.checkpoint_path, save_best_only=True, save_weights_only=False
-            ),
-        ]
-        self._build_model()
-        self._compile_model()
+    dense_activation: str = "relu"
 
     def __repr__(self):
         string_components = [
@@ -279,20 +264,21 @@ class LSTMRegressor:
         ]
         return " ".join(string_components)
 
-    def _build_model(self):
-        lstm_layer = tfk.layers.LSTM(
-            self.lstm_units, dropout=self.dropout, return_sequences=True
-        )
-        dense_layer = tfk.layers.Dense(self.dense_units, activation="relu")
-        output_layer = tfk.layers.Dense(self.output_dimension)
+    def _build_model(self, input_shape: Tuple[int, int, int]):
+        inputs = tfk.layers.Input(shape=input_shape)
+        x = tfk.layers.BatchNormalization()(inputs)
+        x = tfk.layers.PReLU()(x)
+        x = tfk.layers.LSTM(self.lstm_units, dropout=self.dropout)(x)
+        x = tfk.layers.Dense(self.dense_units, activation=self.dense_activation)(x)
+        x = tfk.layers.Dense(self.dense_units // 2, activation=self.dense_activation)(x)
+        output = tfk.layers.Dense(self.output_dimension)(x)
 
-        self.model = tfk.models.Sequential()
-        self.model.add(lstm_layer),
-        self.model.add(dense_layer)
-        self.model.add(output_layer)
+        self.model = tfk.models.Model(inputs, output)
+
+        return self.model
 
     def _compile_model(self):
-        optmizer = tfk.optimizers.Adam(
+        optimizer = tfk.optimizers.Adam(
             learning_rate=self.learning_rate,
             beta_1=self.beta_1,
             beta_2=self.beta_2,
@@ -300,62 +286,9 @@ class LSTMRegressor:
         )
         self.model.compile(
             loss=self.loss,
-            optimizer=optmizer,
+            optimizer=optimizer,
             metrics=[self.loss],
         )
-
-    def get_sequence_data(
-        self,
-        X: DataFrame,
-        y: Series,
-        sequence_split_by: Union[str, List[str]],
-        n_steps: int = 3,
-        group_by: Optional[List[str]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Prepare data to input a LSTM model.
-
-        This method will group the data by the group_by columns and sort the data by the
-        sequence_split_by columns. After that, it will split the data into sequences of
-        of n_steps length.
-
-        Parameters:
-        ----------
-        X: DataFrame
-            The features data.
-        y: Series
-            The target data.
-        group_by: List[str]
-            The columns to group the data by.
-        sequence_split_by: Union[str, List[str]]
-            The columns to sort the and sequence the data by.
-        n_steps: int
-            The number of steps in the sequence.
-
-        Returns:
-        --------
-        ndarray[M, n_steps, n_features], ndarray[M]
-            The sequence data and the target data. M is the number of examples, n_steps
-            is the number of steps in the sequence, and n_features is the number of
-            features.
-        """
-        data = pd.concat([X, y], axis=1)
-        data = data.sort_values(sequence_split_by)
-        X_sequence_data = []
-        y_target_data = []
-        if group_by is None:
-            for i in range(len(data) - n_steps):
-                X_sequence_data.append(data.iloc[i:i + n_steps][X.columns].values)
-                import pdb
-
-                pdb.set_trace()  # noqa
-                y_target_data.append(data.iloc[i + n_steps][str(y.name)])
-            return np.array(X_sequence_data), np.array(y_target_data)
-        for _, group in data.groupby(group_by):
-            group = group.sort_values(sequence_split_by)
-            for i in range(len(group) - n_steps):
-                X_sequence_data.append(group.iloc[i:i + n_steps][X.columns].values)
-                y_target_data.append(group.iloc[i + n_steps][str(y.name)])
-        return np.array(X_sequence_data), np.array(y_target_data)
 
     def fit(
         self,
@@ -364,6 +297,12 @@ class LSTMRegressor:
         sequence_split_by: Optional[Union[str, List[str]]] = None,
         val_size: float = 0.2,
     ):
+        self.callbacks = [
+            tfk.callbacks.EarlyStopping(monitor="val_loss", patience=5),
+            tfk.callbacks.ModelCheckpoint(
+                self.checkpoint_path, save_best_only=True, save_weights_only=False
+            ),
+        ]
         print(self)
         x_train_, x_val, y_train_, y_val = train_test_split(
             X_train, y_train, test_size=val_size, random_state=self.random_state
@@ -376,6 +315,10 @@ class LSTMRegressor:
             x_train_ = x_train_.values.reshape(x_train_.shape[0], 1, x_train_.shape[1])
             x_val = x_val.values.reshape(x_val.shape[0], 1, x_val.shape[1])
             y_train_, y_val = y_train_.values, y_val.values
+
+        self._build_model(input_shape=(1, x_train_.shape[2]))
+        self._compile_model()
+
         self.model.summary()
         self.model.fit(
             x_train_.astype("float32"),
@@ -390,6 +333,8 @@ class LSTMRegressor:
     def predict(self, X: Union[DataFrame, np.ndarray[Any, Any]]):
         if isinstance(X, DataFrame):
             X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
+        if len(X.shape) < 3:
+            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
         return self.model.predict(X.astype("float32")).flatten()
 
     def get_params(self, deep: bool = False):
@@ -415,13 +360,15 @@ class LSTMRegressor:
         # Return the validation loss
         if isinstance(X, DataFrame):
             X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
+        if len(X.shape) < 3:
+            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
         if isinstance(y, Series):
             y = y.values.astype("float32")
         results = self.model.evaluate(X.astype("float32"), y.astype("float32"))
         self.model.summary()
         print(
             f"After {self.epochs} epochs:\n"
-            "MSE:\n"
+            "MAE:\n"
             f"Train: {results[0]:0.3f}, Validation: {results[1]:0.3f}"
         )
         return results[1]
