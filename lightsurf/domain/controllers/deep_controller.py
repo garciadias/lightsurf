@@ -85,24 +85,24 @@ def train_lstm_regressor(
     lstm_regressor = LSTMRegressor(
         checkpoint_path=checkpoint_file_path,
     )
-    # model = RandomizedSearchCV(
-    #     lstm_regressor,
-    #     param_distributions={
-    #         "lstm_units": [64, 128, 256, 512],
-    #         "dense_units": [64, 128, 256, 512],
-    #         "dropout": [0.1, 0.2, 0.3],
-    #         "epochs": [100],
-    #         "batch_size": [50, 100, 200],
-    #         "verbose": [1],
-    #         "random_state": [random_state],
-    #     },
-    #     n_iter=100,
-    #     n_jobs=1,
-    #     cv=2,
-    #     random_state=random_state,
-    # )
-    return run_deep_experiment(
+    model = RandomizedSearchCV(
         lstm_regressor,
+        param_distributions={
+            "lstm_units": [16, 32, 64, 128, 256, 512],
+            "dense_units": [16, 32, 64, 128, 256, 512],
+            "dropout": [0.1, 0.15, 0.2, 0.25],
+            "epochs": [50],
+            "batch_size": [64, 128, 256, 512],
+            "verbose": [1],
+            "random_state": [random_state],
+        },
+        n_iter=1000,
+        n_jobs=1,
+        cv=2,
+        random_state=random_state,
+    )
+    return run_deep_experiment(
+        model,
         run_name="LSTM",
         n_rows=n_rows,
         input_path=input_path,
@@ -137,8 +137,23 @@ def train_cnn_lstm_regressor(
             "batch_size": [64, 128, 256],
             "verbose": [1],
             "random_state": [random_state],
+            "cnn_kernel_size": [3, 5, 7],
+            "cnn_strides": [1, 2, 3],
+            "learning_rate": [0.001, 0.01, 0.1],
+            "dropout": [0.1, 0.15, 0.2, 0.25],
+            "lstm_units": [16, 32, 64, 128, 256, 512],
+            "cnn_filters": [
+                16, 32, 64, 128, 256, 512,
+                [16, 32, 64, 128, 256, 512],
+                [len(APOGEE_WAVELENGTH_AIR_STR) // i for i in [1, 2, 4, 8]],
+            ],
+            "dense_units": [
+                16, 32, 64, 128, 256, 512,
+                [16, 32, 64, 128, 256, 512],
+                [20, 8], [16, 32, 64], [16, 32, 64, 128]
+                ],
         },
-        n_iter=1,
+        n_iter=1000,
         n_jobs=1,
         cv=2,
         random_state=random_state,

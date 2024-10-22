@@ -103,6 +103,9 @@ class CnnLstmAttentionModel:
             cnn_filters = [self.cnn_filters]
         else:
             cnn_filters = self.cnn_filters
+        cnn_filters = sorted(cnn_filters, reverse=True)
+        lstm_units = sorted(lstm_units, reverse=True)
+        dense_units = sorted(dense_units, reverse=True)
         # CNN layers
         for i, filter_dim in enumerate(cnn_filters):
             if i == 0:
@@ -268,6 +271,9 @@ class LSTMRegressor:
         inputs = tfk.layers.Input(shape=input_shape)
         x = tfk.layers.BatchNormalization()(inputs)
         x = tfk.layers.PReLU()(x)
+        x = tfk.layers.LSTM(
+            self.lstm_units, dropout=self.dropout, return_sequences=True
+        )(x)
         x = tfk.layers.LSTM(self.lstm_units, dropout=self.dropout)(x)
         x = tfk.layers.Dense(self.dense_units, activation=self.dense_activation)(x)
         x = tfk.layers.Dense(self.dense_units // 2, activation=self.dense_activation)(x)
