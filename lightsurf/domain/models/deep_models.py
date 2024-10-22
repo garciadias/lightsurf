@@ -42,7 +42,7 @@ class AttentionLayer(tfk.layers.Layer):
         # Remove last dimension
         attention_scores = tf.squeeze(attention_scores, axis=-1)
         # Apply softmax to get attention weights
-        attention_weights = tfk.activations.softmax(attention_scores)
+        attention_weights = tfk.activations.sigmoid(attention_scores)
         # Multiply input by attention weights
         attention_weights = tf.expand_dims(attention_weights, axis=-1)
         weighted_output = x * attention_weights
@@ -52,7 +52,7 @@ class AttentionLayer(tfk.layers.Layer):
 
 
 @dataclass
-class CnnLstmAttentionModel():
+class CnnLstmAttentionModel:
     epochs: int = 100
     batch_size: int = 64
     loss: Literal["mse", "mae"] = "mse"
@@ -65,7 +65,9 @@ class CnnLstmAttentionModel():
     verbose: int = 1
     cnn_kernel_size: int = 3
     cnn_strides: int = 2
-    cnn_filters: List[int] | int = field(default_factory=lambda: [999, 499, 249, 124, 61])
+    cnn_filters: List[int] | int = field(
+        default_factory=lambda: [999, 499, 249, 124, 61]
+    )
     lstm_units: List[int] | int = 256
     dense_units: List[int] | int = field(default_factory=lambda: [20, 8])
     dense_activation: str = "relu"
@@ -74,19 +76,6 @@ class CnnLstmAttentionModel():
     checkpoint_path: str | Path = "models/cnn_lstm_attention_model.keras"
     save_best_only: bool = True
     save_weights_only: bool = False
-
-    def __post_init__(self):
-        self.callbacks = [
-            tfk.callbacks.EarlyStopping(
-                monitor=self.early_stopping_monitor,
-                patience=self.early_stopping_patience,
-            ),
-            tfk.callbacks.ModelCheckpoint(
-                self.checkpoint_path,
-                save_best_only=self.save_best_only,
-                save_weights_only=self.save_weights_only,
-            ),
-        ]
 
     def __repr__(self):
         model_name = "CnnLstmAttentionModel"
@@ -161,6 +150,18 @@ class CnnLstmAttentionModel():
         # Define the model
         model = tfk.models.Model(inputs, output, name="cnn_lstm_attention_model")
 
+        self.callbacks = [
+            tfk.callbacks.EarlyStopping(
+                monitor=self.early_stopping_monitor,
+                patience=self.early_stopping_patience,
+            ),
+            tfk.callbacks.ModelCheckpoint(
+                self.checkpoint_path,
+                save_best_only=self.save_best_only,
+                save_weights_only=self.save_weights_only,
+            ),
+        ]
+
         return model
 
     def _compile(self, optimizer, loss, metrics):
@@ -205,15 +206,32 @@ class CnnLstmAttentionModel():
                 y_test.shape[1]).astype('float32')
         ).flatten()
 
-    def score(self, test_data, test_labels):
-        return self.model.evaluate(test_data, test_labels)
+    def score(
+        self, X: DataFrame | np.ndarray, y: DataFrame | np.ndarray
+    ) -> float:
+        if isinstance(X, DataFrame):
+            X = X.values
+        if len(X.shape) < 3:
+            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
+        if isinstance(y, Series):
+            y = y.values.astype("float32")
+
+        results = self.model.evaluate(
+            X.astype("float32"), y.astype("float32")
+        )
+        print(
+            f"{self.loss_metrics[0]}:\n"
+            f"Train: {results[0]:0.3f}, Validation: {results[1]:0.3f}"
+        )
+        return results[1]
 
     def set_params(self, **parameters):
         for parameter, value in parameters.items():
             setattr(self, parameter, value)
         return self
 
-    def get_params(self):
+    def get_params(self, deep: bool = False) -> dict:
+        del deep
         return {
             key: value
             for key, value in self.__dict__.items()

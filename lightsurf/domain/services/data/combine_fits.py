@@ -1,5 +1,5 @@
-import logging
 import gc
+import logging
 from pathlib import Path
 
 import click
@@ -14,7 +14,7 @@ MODULE_PATH = Path(__file__).parents[4]
 
 
 def extract_flux(star_file_path: str) -> list:
-    hdul  = fits.open(star_file_path)
+    hdul = fits.open(star_file_path)
     image_data = hdul[1].data.copy()
     hdul.close()
     gc.collect()

@@ -197,8 +197,6 @@ class ModelEvaluator:
         )
         self.indexes = self.get_train_test_indexes(data_service)
         print("Creating bland altman plot")
-        print("y_test shape:", data_service.y_test.shape)
-        print("y_pred shape:", self.y_pred.shape)
         self.bland_altman_plot = bland_altman_plot(data_service.y_test, self.y_pred)
         return self.model_evaluation
 

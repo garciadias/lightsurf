@@ -3,6 +3,7 @@ from typing import Optional
 
 import mlflow
 import pandera as pa
+from sklearn.model_selection import RandomizedSearchCV
 
 from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
 from lightsurf.domain.controllers.controller import create_model_controller
@@ -31,7 +32,7 @@ def run_deep_experiment(
     params = {
         "data_reader": data_reader,
         "target_variable": target_variable,
-        "features": APOGEE_WAVELENGTH_AIR_STR[1000:-1000] + [target_variable],
+        "features": APOGEE_WAVELENGTH_AIR_STR + [target_variable],
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,
@@ -54,7 +55,8 @@ def run_deep_experiment(
             best_estimator = controller.service.model_trainer.model.best_estimator_
             mlflow.tensorflow.log_model(best_estimator.model, "best_estimator")
             best_params = controller.service.model_trainer.model.best_params_
-            del best_params["features"]
+            if "features" in best_params:
+                del best_params["features"]
             mlflow.log_params({"best_params": best_params})
         else:
             mlflow.tensorflow.log_model(
@@ -128,24 +130,21 @@ def train_cnn_lstm_regressor(
     lstm_regressor = CnnLstmAttentionModel(
         checkpoint_path=checkpoint_file_path,
     )
-    # model = RandomizedSearchCV(
-    #     lstm_regressor,
-    #     param_distributions={
-    #         "lstm_units": [64, 128, 256, 512],
-    #         "dense_units": [64, 128, 256, 512],
-    #         "dropout": [0.1, 0.2, 0.3],
-    #         "epochs": [100],
-    #         "batch_size": [50, 100, 200],
-    #         "verbose": [1],
-    #         "random_state": [random_state],
-    #     },
-    #     n_iter=100,
-    #     n_jobs=1,
-    #     cv=2,
-    #     random_state=random_state,
-    # )
-    return run_deep_experiment(
+    model = RandomizedSearchCV(
         lstm_regressor,
+        param_distributions={
+            "epochs": [50],
+            "batch_size": [64, 128, 256],
+            "verbose": [1],
+            "random_state": [random_state],
+        },
+        n_iter=1,
+        n_jobs=1,
+        cv=2,
+        random_state=random_state,
+    )
+    return run_deep_experiment(
+        model,
         run_name="CNN_LSTM",
         n_rows=n_rows,
         input_path=input_path,
