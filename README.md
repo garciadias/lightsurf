@@ -25,16 +25,11 @@ poetry shell
 
 ### Downloading spectral data
 
-First, you need to download the list of spectra you want to download. Add it at `data/mdwarfs_DR17`.
-
-To download the spectral data, run:
+To download the spectral data for M dwarfs, run:
 
 ```bash
 task download
 ```
-
-This command will download all the spectral listed at the file
-`data/mdwarfs_DR17` and save them at the folder `data/raw_data/appstar`.
 
 ### Preprocessing the data
 

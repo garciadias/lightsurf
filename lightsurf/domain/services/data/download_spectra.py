@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+import click
 import tqdm
 from astropy.io import fits
 
@@ -47,7 +48,19 @@ async def download_in_batches(
         await asyncio.gather(*tasks)
 
 
-def main(
+@click.command()
+@click.option(
+    "--star_list_fits_file_path",
+    help="Path to the FITS file containing the list of stars",
+    default=f"{MODULE_PATH}/data/mdwarfs_DR17.fits",
+)
+@click.option(
+    "--output_path",
+    help="Path to the folder where the spectra will be saved",
+    default=f"{MODULE_PATH}/data/raw_data/apstar",
+)
+@click.option("--n_workers", help="Number of workers", default=50)
+def download_spectra(
     star_list_fits_file_path: str | Path, output_path: str | Path, n_workers: int = 50
 ) -> None:
     print("📦 Loading list of stars")
@@ -59,7 +72,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(
-        star_list_fits_file_path=f"{MODULE_PATH}/data/mdwarfs_DR17",
-        output_path=f"{MODULE_PATH}/data/raw_data/apstar",
-    )
+    download_spectra()

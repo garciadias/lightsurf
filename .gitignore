@@ -132,3 +132,7 @@ lightsurf/trash.py
 mlruns/
 
 models/
+
+data/mdwarfs_DR17.fits
+
+data/allStar-dr17-synspec_rev1.fits
