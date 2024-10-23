@@ -1,6 +1,6 @@
 import click
 
-from lightsurf.constants import APOGEE_ABUNDANCE_TARGETS
+from lightsurf.constants import APOGEE_PARAMETERS
 from lightsurf.domain.controllers.deep_controller import (
     train_cnn_lstm_regressor,
     train_lstm_regressor,
@@ -34,7 +34,7 @@ from lightsurf.domain.controllers.shallow_controller import train_xgboost_regres
     "--target_variable",
     default="FE_H",
     help="Target variable to predict. Default: FE_H, the valid options are %s"
-    % APOGEE_ABUNDANCE_TARGETS,
+    % APOGEE_PARAMETERS,
 )
 def train(m, n_rows, input_path, schema, target_variable):
     MODELS = {

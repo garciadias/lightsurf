@@ -24,6 +24,7 @@ APOGEE_ABUNDANCE_TARGETS = [
     # "NA_FE",
     # "V_FE",
 ]
+APOGEE_PARAMETERS = ["TEFF", "LOGG"] + APOGEE_ABUNDANCE_TARGETS
 
 COLORS = {
     "red": "#ee1c2e",

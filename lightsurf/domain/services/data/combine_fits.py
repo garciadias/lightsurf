@@ -7,7 +7,7 @@ import pandas as pd
 from astropy.io import fits
 from tqdm import tqdm
 
-from lightsurf.constants import APOGEE_ABUNDANCE_TARGETS, APOGEE_WAVELENGTH_AIR
+from lightsurf.constants import APOGEE_PARAMETERS, APOGEE_WAVELENGTH_AIR
 from lightsurf.domain.services.data.download_spectra import load_star_list
 
 MODULE_PATH = Path(__file__).parents[4]
@@ -24,9 +24,9 @@ def extract_flux(star_file_path: str) -> list:
 
 def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     dr = load_star_list(star_list_fits_file_path)
-    abundances = [dr[var] for var in APOGEE_ABUNDANCE_TARGETS]
+    abundances = [dr[var] for var in APOGEE_PARAMETERS]
     abundances = pd.DataFrame(
-        abundances, index=APOGEE_ABUNDANCE_TARGETS, columns=dr["APOGEE_ID"]
+        abundances, index=APOGEE_PARAMETERS, columns=dr["APOGEE_ID"]
     ).T
     abundances.index.name = "FILE"
     abundances.reset_index(inplace=True)
@@ -81,7 +81,7 @@ def main(star_path: str | Path, output_path: str | Path) -> None:
     FLUX.index.name = "FILE"
     print("📤 Extracting abundances")
     ABUNDANCES = extract_abundances(
-        star_list_fits_file_path=f"{MODULE_PATH}/data/mdwarfs_DR17"
+        star_list_fits_file_path=f"{MODULE_PATH}/data/mdwarfs_DR17.fits"
     )
     print(f"📦 Saving failed stars at {output_path}")
     FAILED_STARS.to_csv(f"{output_path}/failed_stars.csv", index=False)

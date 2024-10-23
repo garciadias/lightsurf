@@ -42,7 +42,7 @@ task combine
 This command will combine all the `fits` files into a single `csv` file that will be saved at the folder `data/raw_data/flux_abundances`.
 
 The file will contain the columns listed on the variable
-`lightsurf.constants.APOGEE_WAVELENGTH_AIR_STR` and the abundances at `lightsurf.constants.APOGEE_ABUNDANCE_TARGETS`.
+`lightsurf.constants.APOGEE_WAVELENGTH_AIR_STR` and the abundances at `lightsurf.constants.APOGEE_PARAMETERS`.
 
 ### Training the model
 

@@ -94,7 +94,7 @@ def train_xgboost_regressor(
         n_iter=1000,
         random_state=RANDOM_STATE,
         n_jobs=1,
-        verbose=1,
+        verbose=2,
     )
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:
