@@ -3,6 +3,7 @@ from pathlib import Path
 import mlflow
 import pandas as pd
 import pandera as pa
+from sklearn.model_selection import RandomizedSearchCV
 from xgboost import XGBRegressor
 
 from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
@@ -81,7 +82,20 @@ def train_xgboost_regressor(
     schema: str | Path | pa.DataFrameSchema | None = "",
     target_variable="FE_H",
 ):
-    model = XGBRegressor(random_state=RANDOM_STATE)
+    xgboost = XGBRegressor(random_state=RANDOM_STATE, n_jobs=-1)
+    model = RandomizedSearchCV(
+        xgboost,
+        param_distributions={
+            "n_estimators": [100, 200, 300, 400, 500],
+            "max_depth": [3, 5, 7, 9, 11],
+            "learning_rate": [0.01, 0.05, 0.1, 0.3, 0.5],
+        },
+        cv=2,
+        n_iter=1000,
+        random_state=RANDOM_STATE,
+        n_jobs=1,
+        verbose=1,
+    )
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:
             schema = SCHEMA_DICT.get(schema)
