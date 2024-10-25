@@ -343,7 +343,13 @@ class FeatureSelector:
     def _select_from_model(
         self, data_service: DataServiceInterface, model_trainer: ModelTrainer
     ) -> SelectFromModel:
-        sfm = SelectFromModel(estimator=model_trainer.model, **(self.params or {}))
+        if not hasattr(model_trainer.model, "coef_"):
+            model_type = model_trainer.model.__class__.__name__
+            if model_type == "RandomSearchCV":
+                model_type = model_trainer.model.estimator.__class__.__name__
+            sfm = SelectFromModel(model_trainer.model.estimator, **(self.params or {}))
+        else:
+            sfm = SelectFromModel(estimator=model_trainer.model, **(self.params or {}))
         sfm.fit(data_service.X_train, data_service.y_train)
         return sfm
 

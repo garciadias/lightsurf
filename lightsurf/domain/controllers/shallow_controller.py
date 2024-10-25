@@ -69,7 +69,8 @@ def run_shallow_experiment(
         metrics = controller.service.model_evaluator.model_evaluation.model_dump()
         print(pd.DataFrame(metrics, index=[0]))
         mlflow.log_metrics(metrics)
-
+        if hasattr(model, "best_params_"):
+            mlflow.log_params({"best_params_": model.best_params_})
         mlflow.log_artifacts(model_path)
         del controller.service.data_service
         mlflow.sklearn.log_model(model, "model")
@@ -86,15 +87,15 @@ def train_xgboost_regressor(
     model = RandomizedSearchCV(
         xgboost,
         param_distributions={
-            "n_estimators": [100, 200, 300, 400, 500],
+            "n_estimators": range(400, 1000, 50),
             "max_depth": [3, 5, 7, 9, 11],
-            "learning_rate": [0.01, 0.05, 0.1, 0.3, 0.5],
+            "learning_rate": [0.0001, 0.01, 0.05, 0.1, 0.3, 0.5],
         },
-        cv=2,
+        cv=3,
         n_iter=1000,
         random_state=RANDOM_STATE,
         n_jobs=1,
-        verbose=2,
+        verbose=3,
     )
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:
