@@ -13,9 +13,9 @@ from lightsurf.domain.services.data.download_spectra import load_star_list
 MODULE_PATH = Path(__file__).parents[4]
 
 
-def extract_flux(star_file_path: str) -> list:
+def extract_flux(star_file_path: str, data_position: int = 1) -> list:
     hdul = fits.open(star_file_path)
-    image_data = hdul[1].data.copy()
+    image_data = hdul[data_position].data.copy()
     hdul.close()
     gc.collect()
 
@@ -36,19 +36,24 @@ def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     return abundances
 
 
-def combine_fluxes(star_paths: list[Path]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def combine_fluxes(star_paths: list[Path], data_type: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    data_position = 1 if data_type == "spectrum" else 3
     FLUX = []
     LOADED_STARS = []
     FAILED_STARS = []
     for star_file_path in tqdm(star_paths, desc="🔀 Combining fluxes"):
         try:
-            FLUX.append(extract_flux(star_file_path))
+            FLUX.append(extract_flux(star_file_path, data_position))
             LOADED_STARS.append(star_file_path.stem)
         except FileNotFoundError:
             logging.warning(f"File not found: {star_file_path}")
             FAILED_STARS.append(star_file_path)
             continue
         except TypeError as e:
+            logging.warning(f"{e}: {star_file_path}")
+            FAILED_STARS.append(star_file_path)
+            continue
+        except IndexError as e:
             logging.warning(f"{e}: {star_file_path}")
             FAILED_STARS.append(star_file_path)
             continue
@@ -73,11 +78,16 @@ def combine_fluxes(star_paths: list[Path]) -> tuple[pd.DataFrame, pd.DataFrame]:
     default=f"{MODULE_PATH}/data/raw_data/",
     help="Path to save the combined fluxes",
 )
-def main(star_path: str | Path, output_path: str | Path) -> None:
+@click.option(
+    "--data_type",
+    default="spectrum",
+    help="Type of spectral data to extract. If 'spectrum' get the first spectrum availiable, if 'model' gets the best fit model.",
+)
+def main(star_path: str | Path, output_path: str | Path, data_type: str) -> None:
     print(f"🔍 Finding fit files at {star_path}")
     star_paths = list(Path(star_path).glob("*.fits"))
     print(f"👉 {len(star_paths)} files found")
-    FLUX, FAILED_STARS = combine_fluxes(star_paths=star_paths)
+    FLUX, FAILED_STARS = combine_fluxes(star_paths=star_paths, data_type=data_type)
     FLUX.index.name = "FILE"
     print("📤 Extracting abundances")
     ABUNDANCES = extract_abundances(
@@ -91,7 +101,10 @@ def main(star_path: str | Path, output_path: str | Path) -> None:
     FLUX.dropna(subset=ABUNDANCES.columns, inplace=True, how="all")
     print(f"📊 {FLUX.shape} fluxes and abundances combined")
     print(f"📦 Saving combined fluxes and abundances at {output_path}")
-    FLUX.round(4).to_csv(f"{output_path}/flux_abundances.csv", float_format="%.4f")
+    if data_type == "spectrum":
+        FLUX.round(4).to_csv(f"{output_path}/flux_abundances.csv", float_format="%.4f")
+    else:
+        FLUX.round(4).to_csv(f"{output_path}/best_fit_flux_abundances.csv", float_format="%.4f")
     print("✅ Done")
 
 
