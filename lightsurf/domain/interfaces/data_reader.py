@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import field
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
@@ -12,7 +12,7 @@ class DataReaderInterface(ABC):
     schema: Union[DataFrameSchema, str, Path, None]
 
     @abstractmethod
-    def read(self, n_rows: Optional[int]) -> DataFrame: ...
+    def read(self, n_rows: int | None) -> DataFrame: ...
 
 
 class PreprocessorInterface(ABC):
@@ -36,6 +36,7 @@ class DataServiceInterface(ABC):
     y_test: Series = field(default_factory=Series, init=False)
     test_index: list = field(default_factory=list, init=False)
     train_index: list = field(default_factory=list, init=False)
+    selected_features: List[str] | None = field(default=None, init=False)
 
     @abstractmethod
     def read(self): ...

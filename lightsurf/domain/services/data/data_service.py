@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import pandas as pd
 import pandera as pa
@@ -29,7 +29,7 @@ class FileDataReader(DataReaderInterface):
             if not self.schema.exists():
                 raise FileNotFoundError(f"Schema file {self.schema} not found")
 
-    def read(self, n_rows: Optional[int] = None) -> DataFrame:
+    def read(self, n_rows: int | None = None) -> DataFrame:
         df = self.read_function(self.path, nrows=n_rows)
         if isinstance(self.schema, str) or isinstance(self.schema, Path):
             with open(self.schema, "r") as file:
@@ -68,7 +68,7 @@ class DataService(DataServiceInterface):
         return self.features
 
     def train_test_split(
-        self, data: DataFrame, split_by: Optional[str] = None
+        self, data: DataFrame, split_by: str | None = None
     ) -> Tuple[DataFrame, DataFrame, Series, Series]:
         features = self.get_features(data)
         print(f"🧮 Data loaded with shape: {data.shape}")
@@ -98,7 +98,7 @@ class DataService(DataServiceInterface):
 
     def load(
         self,
-        split_by: Optional[str] = None,
+        split_by: str | None = None,
     ):
         data = self.read()
         X_train, X_test, y_train, y_test = self.train_test_split(data, split_by)

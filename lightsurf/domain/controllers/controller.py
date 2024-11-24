@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import pandas as pd
 from sklearn.base import BaseEstimator
@@ -7,11 +7,10 @@ from sklearn.base import BaseEstimator
 from lightsurf.domain.interfaces.data_reader import DataReaderInterface
 from lightsurf.domain.interfaces.training import Controller
 from lightsurf.domain.services.data.data_service import DataService
+from lightsurf.domain.services.evaluation_service import ModelEvaluator
 from lightsurf.domain.services.training_service import (
     FeatureSelector,
     FileModelRepository,
-    ModelEvaluator,
-    ModelTrainer,
     TrainingService,
 )
 
@@ -26,7 +25,7 @@ class TrainingController(Controller):
     def __post_init__(self):
         self.model = self.service.model_trainer.model
 
-    def train(self) -> BaseEstimator:
+    def fit(self) -> BaseEstimator:
         self.model = self.service.train_model()
         return self
 
@@ -50,8 +49,9 @@ def create_model_controller(
     random_state: int = 42,
     average_evaluator: Literal["micro", "macro", "weighted", "binary", None] = None,
     str_threshold: str = "mean",
-    n_rows: Optional[int] = None,
-    feature_selection: Optional[str] = "select_from_model",
+    n_rows: int | None = None,
+    feature_selection: str | None = "select_from_model",
+    param_distributions: dict[str, list] | None = None,
 ) -> TrainingController:
     data_service = DataService(
         data_reader=data_reader,
@@ -64,7 +64,7 @@ def create_model_controller(
     model_repository = FileModelRepository(
         base_path=model_path, filetype=output_filetype
     )
-    model_trainer = ModelTrainer(model=model)
+    model_trainer = model
     if feature_selection:
         feature_selector = FeatureSelector(
             selection_type="select_from_model", params={"threshold": str_threshold}
@@ -78,6 +78,7 @@ def create_model_controller(
         model_trainer=model_trainer,
         model_evaluator=model_evaluator,
         feature_selector=feature_selector,
+        param_distributions=param_distributions,
     )
     controller = TrainingController(training_service)
     return controller

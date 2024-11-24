@@ -4,13 +4,16 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 
 from lightsurf.domain.interfaces.data_models.evaluation import (
     ModelEvaluationClassification,
     ModelEvaluationRegression,
 )
-from lightsurf.domain.services.training_service import ModelEvaluator
+from lightsurf.domain.services.evaluation_service import (
+    ModelEvaluator,
+    bland_altman_plot,
+)
 
 
 @pytest.fixture
@@ -23,7 +26,7 @@ def tmp_path():
 
 def test_model_evaluator():
     with patch(
-        "lightsurf.domain.services.training_service.ModelEvaluator.save_evaluation"
+        "lightsurf.domain.services.evaluation_service.ModelEvaluator.save_evaluation"
     ) as mock_save_evaluation:
         model_evaluator = ModelEvaluator()
         base_path = "data/evaluations"
@@ -48,7 +51,7 @@ def test_model_evaluator_creates_folder_if_does_not_exist():
                 mean_squared_error=0.5,
                 r2_score=0.5,
             )
-            model_evaluator.confusion_matrix = plt.figure()
+            model_evaluator.bland_altman_plot = Figure()
             model_evaluator.indexes = pd.DataFrame([1, 2, 3])
             model_evaluator.save_evaluation(
                 identity="xgboost", base_path="data/evaluations"
@@ -140,3 +143,11 @@ def test_interface_dump_classification(accuracy, precision, recall, f1, expected
     result_str = str(classification_evaluation)
     assert isinstance(result_str, str)
     assert classification_evaluation.model_dump() == expected
+
+
+def test_bland_altman_plot():
+    y_pred = [1, 2, 3, 4, 5]
+    y_true = [1, 2, 3, 4, 5]
+    fig = bland_altman_plot(y_true, y_pred)
+    assert fig is not None
+    assert isinstance(fig, Figure)

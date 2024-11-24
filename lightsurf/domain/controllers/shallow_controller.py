@@ -3,8 +3,6 @@ from pathlib import Path
 import mlflow
 import pandas as pd
 import pandera as pa
-from sklearn.model_selection import RandomizedSearchCV
-from xgboost import XGBRegressor
 
 from lightsurf.constants import APOGEE_WAVELENGTH_AIR_STR
 from lightsurf.domain.controllers.controller import (
@@ -13,6 +11,7 @@ from lightsurf.domain.controllers.controller import (
 )
 from lightsurf.domain.interfaces.schemas.apogee_spectrum import SCHEMA_DICT
 from lightsurf.domain.services.data.data_service import FileDataReader
+from lightsurf.domain.services.training_service import FeatureSelector, XGBoostTrainer
 
 
 def run_shallow_experiment(
@@ -29,6 +28,12 @@ def run_shallow_experiment(
         input_path,
         schema=schema,
     )
+    param_distributions = {
+        "n_estimators": range(400, 1000, 50),
+        "max_depth": [3, 5, 7, 9, 11],
+        "learning_rate": [0.0001, 0.01, 0.05, 0.1, 0.3, 0.5],
+        "feature_selector": [FeatureSelector(selection_type=feature_selection)],
+    }
     params = {
         "data_reader": data_reader,
         "target_variable": target_variable,
@@ -36,6 +41,7 @@ def run_shallow_experiment(
         "model": model,
         "model_path": model_path,
         "test_size": 0.2,
+        "param_distributions": param_distributions,
         "random_state": RANDOM_STATE,
         "n_rows": n_rows,
         "output_filetype": "pkl",
@@ -48,7 +54,7 @@ def run_shallow_experiment(
         del params["features"]
         del params["data_reader"]
         mlflow.log_params(params)
-        controller.train()
+        controller.fit()
         model = controller.model
         features = controller.service.data_service.X_train.columns.tolist()
         if feature_selection:
@@ -83,25 +89,12 @@ def train_xgboost_regressor(
     schema: str | Path | pa.DataFrameSchema | None = "",
     target_variable="FE_H",
 ):
-    xgboost = XGBRegressor(random_state=RANDOM_STATE, n_jobs=-1)
-    model = RandomizedSearchCV(
-        xgboost,
-        param_distributions={
-            "n_estimators": range(400, 1000, 50),
-            "max_depth": [3, 5, 7, 9, 11],
-            "learning_rate": [0.0001, 0.01, 0.05, 0.1, 0.3, 0.5],
-        },
-        cv=3,
-        n_iter=1000,
-        random_state=RANDOM_STATE,
-        n_jobs=1,
-        verbose=3,
-    )
+    xgboost = XGBoostTrainer()
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:
             schema = SCHEMA_DICT.get(schema)
     return run_shallow_experiment(
-        model=model,
+        model=xgboost,
         target_variable=target_variable,
         input_path=input_path,
         model_path="data/models/",

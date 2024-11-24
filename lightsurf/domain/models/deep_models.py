@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, List, Literal, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
@@ -267,7 +267,7 @@ class LSTMRegressor:
         ]
         return " ".join(string_components)
 
-    def _build_model(self, input_shape: Tuple[int, int, int]):
+    def _build_model(self, input_shape: Tuple[int, int]):
         inputs = tfk.layers.Input(shape=input_shape)
         x = tfk.layers.BatchNormalization()(inputs)
         x = tfk.layers.PReLU()(x)
@@ -300,7 +300,7 @@ class LSTMRegressor:
         self,
         X_train: DataFrame,
         y_train: Series,
-        sequence_split_by: Optional[Union[str, List[str]]] = None,
+        sequence_split_by: Union[str, List[str]] | None = None,
         val_size: float = 0.2,
     ):
         self.callbacks = [
@@ -313,14 +313,9 @@ class LSTMRegressor:
         x_train_, x_val, y_train_, y_val = train_test_split(
             X_train, y_train, test_size=val_size, random_state=self.random_state
         )
-        if sequence_split_by is not None:
-            x_train_, y_train_ = self.get_sequence_data(
-                X_train, y_train, sequence_split_by
-            )
-        else:
-            x_train_ = x_train_.values.reshape(x_train_.shape[0], 1, x_train_.shape[1])
-            x_val = x_val.values.reshape(x_val.shape[0], 1, x_val.shape[1])
-            y_train_, y_val = y_train_.values, y_val.values
+        x_train_ = x_train_.values.reshape(x_train_.shape[0], 1, x_train_.shape[1])
+        x_val = x_val.values.reshape(x_val.shape[0], 1, x_val.shape[1])
+        y_train_, y_val = y_train_.values, y_val.values
 
         self._build_model(input_shape=(1, x_train_.shape[2]))
         self._compile_model()

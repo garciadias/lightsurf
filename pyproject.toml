@@ -70,7 +70,7 @@ exclude = ["lightsurf/domain/services/data/combine_fits.py"]
 [tool.taskipy.tasks]
 test = "pytest"
 lint = "mypy ."
-format = "black .; isort .; ruff check . --fix"
+format = "ruff check . --fix"
 pre_test = "task format && task lint"
 post_test = "coverage html"
 train = "python lightsurf/train.py"

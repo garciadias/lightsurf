@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 import mlflow
 import pandera as pa
@@ -22,7 +21,7 @@ def run_deep_experiment(
     schema: str | Path | pa.DataFrameSchema | None = None,
     target_variable: str = "FE_H",
     run_name="Deep Experiment",
-    n_rows: Optional[int] = 100,
+    n_rows: int | None = 100,
 ):
     data_reader = FileDataReader(
         input_path,
@@ -45,7 +44,7 @@ def run_deep_experiment(
     with mlflow.start_run(run_name=run_name):
         controller = create_model_controller(**params)
         # mlflow.log_params(params)
-        controller.train()
+        controller.fit()
         model = controller.model
 
         mlflow.sklearn.log_model(model, "model")
