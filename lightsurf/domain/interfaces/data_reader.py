@@ -16,7 +16,6 @@ class DataReaderInterface(ABC):
 
 
 class PreprocessorInterface(ABC):
-
     @abstractmethod
     def fit_transform(self, X: DataFrame, y: Series) -> Tuple[DataFrame, Series]: ...
 

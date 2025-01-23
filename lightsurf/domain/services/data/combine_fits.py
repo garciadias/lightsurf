@@ -36,7 +36,9 @@ def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     return abundances
 
 
-def combine_fluxes(star_paths: list[Path], data_type: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def combine_fluxes(
+    star_paths: list[Path], data_type: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     data_position = 1 if data_type == "spectrum" else 3
     FLUX = []
     LOADED_STARS = []
@@ -81,7 +83,8 @@ def combine_fluxes(star_paths: list[Path], data_type: str) -> tuple[pd.DataFrame
 @click.option(
     "--data_type",
     default="spectrum",
-    help="Type of spectral data to extract. If 'spectrum' get the first spectrum availiable, if 'model' gets the best fit model.",
+    help="Type of spectral data to extract. If 'spectrum' get the first \
+         spectrum availiable, if 'model' gets the best fit model.",
 )
 def main(star_path: str | Path, output_path: str | Path, data_type: str) -> None:
     print(f"🔍 Finding fit files at {star_path}")
@@ -104,7 +107,9 @@ def main(star_path: str | Path, output_path: str | Path, data_type: str) -> None
     if data_type == "spectrum":
         FLUX.round(4).to_csv(f"{output_path}/flux_abundances.csv", float_format="%.4f")
     else:
-        FLUX.round(4).to_csv(f"{output_path}/best_fit_flux_abundances.csv", float_format="%.4f")
+        FLUX.round(4).to_csv(
+            f"{output_path}/best_fit_flux_abundances.csv", float_format="%.4f"
+        )
     print("✅ Done")
 
 

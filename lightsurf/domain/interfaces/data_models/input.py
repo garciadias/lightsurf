@@ -9,7 +9,6 @@ class Spectrum(BaseModel, arbitrary_types_allowed=True):
 
 
 class APOGEESpectrum(Spectrum):
-
     @field_validator("intensities")
     def validate_wavelengths(cls, value):
         if len(value) != APOGEE_SPECTRUM_LENGTH:
