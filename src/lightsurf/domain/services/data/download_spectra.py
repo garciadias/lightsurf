@@ -5,7 +5,7 @@ import click
 import tqdm
 from astropy.io import fits
 
-MODULE_PATH = Path(__file__).parents[4]
+MODULE_PATH = Path(__file__).parents[5]
 
 
 async def download(link: str, out: str | Path) -> Path:

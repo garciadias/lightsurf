@@ -73,7 +73,7 @@ def train_lstm_regressor(
     schema: str | Path | pa.DataFrameSchema | None = None,
     target_variable="FE_H",
 ):
-    module_path = Path(__file__).parents[3]
+    module_path = Path(__file__).parents[4]
     input_path = f"{module_path}/{input_path}"
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:
@@ -119,7 +119,7 @@ def train_cnn_lstm_regressor(
     schema: str | Path | pa.DataFrameSchema | None = None,
     target_variable="FE_H",
 ):
-    module_path = Path(__file__).parents[3]
+    module_path = Path(__file__).parents[4]
     input_path = f"{module_path}/{input_path}"
     if isinstance(schema, str):
         if schema in SCHEMA_DICT:

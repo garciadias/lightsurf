@@ -2,7 +2,7 @@ from pathlib import Path
 
 from astropy.io import fits
 
-MODULE_PATH = Path(__file__).parents[4]
+MODULE_PATH = Path(__file__).parents[5]
 ALL_STAR_PATH = f"{MODULE_PATH}/data/allStar-dr17-synspec_rev1.fits"
 
 

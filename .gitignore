@@ -131,7 +131,7 @@ lightsurf/trash.py
 
 mlruns/
 
-models/
+./models/
 
 data/mdwarfs_DR17.fits
 

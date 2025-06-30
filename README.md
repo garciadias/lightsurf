@@ -5,20 +5,20 @@ Lightsurf is a simple a repository of machine learning models applications for s
 ## Requirements
 
 - Python 3.12
-- poetry
+- uv 0.6.2
 
 ## Installation
 
 ```bash
-poetry install
+uv sync
 ```
 
 ## Loading shell
 
-Loading your virtual environment on poetry is done by running:
+Loading your virtual environment on uv is done by running:
 
 ```bash
-poetry shell
+source .venv/bin/activate
 ```
 
 ## Usage

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-MODULE_PATH = Path(__file__).parents[4]
+MODULE_PATH = Path(__file__).parents[5]
 
 
 def download_file_all_star(file_url, destination):

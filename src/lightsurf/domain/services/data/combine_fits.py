@@ -10,7 +10,7 @@ from tqdm import tqdm
 from lightsurf.constants import APOGEE_PARAMETERS, APOGEE_WAVELENGTH_AIR
 from lightsurf.domain.services.data.download_spectra import load_star_list
 
-MODULE_PATH = Path(__file__).parents[4]
+MODULE_PATH = Path(__file__).parents[5]
 
 
 def extract_flux(star_file_path: str, data_position: int = 1) -> list:
