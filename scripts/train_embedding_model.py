@@ -38,7 +38,11 @@ def flux_columns(columns: list[str]) -> list[str]:
 def load_training_data(
     path: str | Path, id_column: str = "FILE",
 ) -> tuple[pd.Series, np.ndarray, np.ndarray, list[str]]:
-    """Read the flux CSV → (ids, spectra, multi-target labels, target names)."""
+    """Read the flux CSV → (ids, spectra, multi-target labels, target names).
+
+    Rows with a non-finite flux value or a non-finite abundance target are
+    dropped (APOGEE abundances have NaN for undetected lines).
+    """
     df = pd.read_csv(path)
     cols = flux_columns(list(df.columns))
     targets = [t for t in APOGEE_ABUNDANCE_TARGETS if t in df.columns]
@@ -46,10 +50,13 @@ def load_training_data(
         raise ValueError(f"no wavelength columns found in {path}")
     if not targets:
         raise ValueError(f"no abundance targets found in {path}")
+    X = df[cols].to_numpy(dtype="float32")
+    Y = df[targets].to_numpy(dtype="float32")
+    keep = np.isfinite(X).all(axis=1) & np.isfinite(Y).all(axis=1)
     return (
-        df[id_column].astype(str).str.removeprefix("aspcapStar-dr17-"),
-        df[cols].to_numpy(dtype="float32"),
-        df[targets].to_numpy(dtype="float32"),
+        df[id_column].astype(str).str.removeprefix("aspcapStar-dr17-")[keep],
+        X[keep],
+        Y[keep],
         targets,
     )
 

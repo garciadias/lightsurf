@@ -41,12 +41,16 @@ def load_conditions(path: str | Path) -> tuple[pd.Series, np.ndarray, np.ndarray
         )
     X = df[cols].to_numpy(dtype="float32")
     U = df[cond_cols].to_numpy(dtype="float32")
+    keep = np.isfinite(X).all(axis=1) & np.isfinite(U).all(axis=1)
+    X = X[keep]
+    U = U[keep]
     # standardise conditions so Teff/logg are on a comparable scale
     med = np.nanmedian(U, axis=0)
     scale = np.nanstd(U, axis=0)
     scale[scale == 0] = 1.0
     U = (U - med) / scale
-    return df["FILE"].astype(str).str.removeprefix("aspcapStar-dr17-"), X, U
+    ids = df["FILE"].astype(str).str.removeprefix("aspcapStar-dr17-")[keep]
+    return ids, X, U
 
 
 @click.command()
