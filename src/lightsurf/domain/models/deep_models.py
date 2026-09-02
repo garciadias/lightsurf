@@ -70,6 +70,7 @@ class CnnLstmAttentionModel:
     lstm_units: List[int] | int = 256
     dense_units: List[int] | int = field(default_factory=lambda: [20, 8])
     dense_activation: str = "relu"
+    output_dimension: int = 1
     early_stopping_patience: int = 5
     early_stopping_monitor: str = "val_loss"
     checkpoint_path: str | Path = "models/cnn_lstm_attention_model.keras"
@@ -132,21 +133,18 @@ class CnnLstmAttentionModel:
             x = tfk.layers.LSTM(lstm_unit, return_sequences=True)(x)
 
         # Attention mechanism
-        attention_output = AttentionLayer()(x)
+        attention_output = AttentionLayer(name="attention")(x)
 
-        # Fully connected layers
+        # Fully connected layers (named so the latent can be tapped)
         for i, dense_unit in enumerate(dense_units):
-            if i == 0:
-                x = tfk.layers.Dense(
-                    dense_unit, activation=self.dense_activation
-                )(attention_output)
-            else:
-                x = tfk.layers.Dense(
-                    dense_unit, activation=self.dense_activation
-                )(x)
+            x = tfk.layers.Dense(
+                dense_unit,
+                activation=self.dense_activation,
+                name=f"dense_{i}",
+            )(attention_output if i == 0 else x)
 
-        # Output layer for regression task
-        output = tfk.layers.Dense(1)(x)
+        # Output layer for regression task (multi-element when output_dimension > 1)
+        output = tfk.layers.Dense(self.output_dimension, name="output")(x)
         # Define the model
         model = tfk.models.Model(inputs, output, name="cnn_lstm_attention_model")
 
@@ -205,6 +203,31 @@ class CnnLstmAttentionModel:
                 1,
                 y_test.shape[1]).astype('float32')
         ).flatten()
+
+    def embedding_model(self, layer_name: str) -> tfk.Model:
+        """Sub-model from the input to ``layer_name`` (the latent embedding).
+
+        Valid layer names: ``attention`` (256-d), ``dense_0`` (20-d),
+        ``dense_1`` (8-d bottleneck). Call :meth:`fit` first so the model
+        graph is built.
+        """
+        if not hasattr(self, "model") or self.model is None:
+            raise ValueError("Model not built. Call fit() first.")
+        layer = self.model.get_layer(layer_name)
+        return tfk.models.Model(
+            self.model.input, layer.output, name=f"embedding_{layer_name}",
+        )
+
+    def predict_embeddings(
+        self, X: DataFrame | np.ndarray, layer_name: str,
+    ) -> np.ndarray:
+        """Extract the latent embedding at ``layer_name`` for each spectrum."""
+        if isinstance(X, DataFrame):
+            X = X.values
+        X = np.asarray(X, dtype="float32")
+        if X.ndim < 3:
+            X = X.reshape(X.shape[0], 1, X.shape[1])
+        return self.embedding_model(layer_name).predict(X)
 
     def score(
         self, X: DataFrame | np.ndarray, y: DataFrame | np.ndarray
