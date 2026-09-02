@@ -58,12 +58,21 @@ def load_spectra(
 )
 @click.option("--out", required=True, help="Output parquet path.")
 @click.option("--id-column", default="FILE", show_default=True)
-def main(model: str, spectra: str, layer: str, out: str, id_column: str) -> None:
+@click.option(
+    "--strip-prefix", default="aspcapStar-dr17-", show_default=True,
+    help="Prefix to strip from the identifier (set empty to keep it).",
+)
+def main(
+    model: str, spectra: str, layer: str, out: str,
+    id_column: str, strip_prefix: str,
+) -> None:
     tf_model = tf.keras.models.load_model(model, compile=False)
     layer_out = tf_model.get_layer(layer).output
     embedder = tf.keras.Model(tf_model.input, layer_out, name=f"embedding_{layer}")
 
     ids, X = load_spectra(spectra, id_column)
+    if strip_prefix:
+        ids = ids.astype(str).str.removeprefix(strip_prefix)
     X = X.reshape(X.shape[0], 1, X.shape[1])
     Z = embedder.predict(X, verbose=1)
 
