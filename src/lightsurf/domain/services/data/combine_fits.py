@@ -13,11 +13,16 @@ from lightsurf.domain.services.data.download_spectra import load_star_list
 MODULE_PATH = Path(__file__).parents[5]
 
 
-def extract_flux(star_file_path: str, data_position: int = 1) -> list:
+def extract_flux(star_file_path: str, data_position: int = 1):
     hdul = fits.open(star_file_path)
     image_data = hdul[data_position].data.copy()
     hdul.close()
     gc.collect()
+
+    # apStar HDU1 is (n_rows, 8575): row 0 = pixel-weighted combined spectrum.
+    # aspcapStar (DR17) HDU1 is already 1-D (8575).
+    if image_data.ndim == 2:
+        image_data = image_data[0]
 
     return image_data
 

@@ -30,11 +30,13 @@ def load_star_list(file_path: str | Path) -> list:
 
 async def download_star(star_data: dict, output_path: str | Path) -> None:
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    telescope = str(star_data["TELESCOPE"])
-    field = str(star_data["FIELD"])
-    star = str(star_data["APOGEE_ID"])
-    base_link = "https://data.sdss.org/sas/dr17/apogee/spectro/aspcap/dr17/synspec/"
-    link = f"{base_link}{telescope}/{field}/aspcapStar-dr17-{star}.fits"
+    telescope = str(star_data["telescope"])
+    # SDSS-V groups apStar files by coarse field = healpix // 256 (Nside=16).
+    # The allStar-1.3 'file' column holds the exact filename (incl. MJD).
+    field = str(int(star_data["healpix"]) // 256)
+    filename = str(star_data["file"])
+    base_link = "https://dr19.sdss.org/sas/dr19/spectro/apogee/redux/1.3/stars/"
+    link = f"{base_link}{telescope}/{field}/{filename}"
     await download(link, output_path)
 
 
@@ -52,7 +54,7 @@ async def download_in_batches(
 @click.option(
     "--star_list_fits_file_path",
     help="Path to the FITS file containing the list of stars",
-    default=f"{MODULE_PATH}/data/mdwarfs_DR17.fits",
+    default=f"{MODULE_PATH}/data/allStar-1.3-apo25m.fits",
 )
 @click.option(
     "--output_path",

@@ -53,8 +53,14 @@ def load_training_data(
     X = df[cols].to_numpy(dtype="float32")
     Y = df[targets].to_numpy(dtype="float32")
     keep = np.isfinite(X).all(axis=1) & np.isfinite(Y).all(axis=1)
+    ids = df[id_column].astype(str)
+    ids = (
+        ids.str.removeprefix("apStar-1.3-apo25m-")
+           .str.removeprefix("aspcapStar-dr17-")
+           .str.replace(r"-\d{5}$", "", regex=True)
+    )
     return (
-        df[id_column].astype(str).str.removeprefix("aspcapStar-dr17-")[keep],
+        ids[keep],
         X[keep],
         Y[keep],
         targets,
