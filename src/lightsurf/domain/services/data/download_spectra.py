@@ -31,12 +31,13 @@ def load_star_list(file_path: str | Path) -> list:
 async def download_star(star_data: dict, output_path: str | Path) -> None:
     Path(output_path).mkdir(parents=True, exist_ok=True)
     telescope = str(star_data["telescope"])
-    # SDSS-V groups apStar files by coarse field = healpix // 256 (Nside=16).
-    # The allStar-1.3 'file' column holds the exact filename (incl. MJD).
-    field = str(int(star_data["healpix"]) // 256)
+    # SDSS-V groups apStar files as stars/<telescope>/<healpix//1024>/<healpix>/.
+    # Verified from allStar-1.3 'uri': .../stars/apo25m/12/12640/apStar-....fits
+    # where 12 = 12640 // 1024. The 'file' column holds the exact filename.
+    healpix = int(star_data["healpix"])
     filename = str(star_data["file"])
     base_link = "https://dr19.sdss.org/sas/dr19/spectro/apogee/redux/1.3/stars/"
-    link = f"{base_link}{telescope}/{field}/{filename}"
+    link = f"{base_link}{telescope}/{healpix // 1024}/{healpix}/{filename}"
     await download(link, output_path)
 
 
