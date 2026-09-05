@@ -12,7 +12,7 @@ async def download(link: str, out: str | Path) -> Path:
     output_file_path = Path(f"{out}/{link.split('/')[-1]}")
     if not output_file_path.exists():
         process = await asyncio.create_subprocess_shell(
-            f"wget {link} --http-user=sdss --http-passwd=2.5-meters -P {out}",
+            f"wget --no-check-certificate {link} -P {out}",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
