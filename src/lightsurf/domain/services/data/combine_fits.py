@@ -35,11 +35,11 @@ def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     ).T
     abundances.index.name = "FILE"
     abundances.reset_index(inplace=True)
-    abundances.drop_duplicates(subset="FILE", inplace=True, keep="first")
     if "file" in dr.names:
         abundances["FILE"] = [str(f).removesuffix(".fits") for f in dr["file"]]
     else:
         abundances["FILE"] = "aspcapStar-dr17-" + abundances["FILE"]
+    abundances.drop_duplicates(subset="FILE", inplace=True, keep="first")
     abundances.set_index("FILE", inplace=True)
     return abundances
 
