@@ -36,7 +36,10 @@ def extract_abundances(star_list_fits_file_path: str | Path) -> pd.DataFrame:
     abundances.index.name = "FILE"
     abundances.reset_index(inplace=True)
     abundances.drop_duplicates(subset="FILE", inplace=True, keep="first")
-    abundances["FILE"] = "aspcapStar-dr17-" + abundances["FILE"]
+    if "file" in dr.names:
+        abundances["FILE"] = [str(f).removesuffix(".fits") for f in dr["file"]]
+    else:
+        abundances["FILE"] = "aspcapStar-dr17-" + abundances["FILE"]
     abundances.set_index("FILE", inplace=True)
     return abundances
 
@@ -91,16 +94,19 @@ def combine_fluxes(
     help="Type of spectral data to extract. If 'spectrum' get the first \
          spectrum availiable, if 'model' gets the best fit model.",
 )
-def main(star_path: str | Path, output_path: str | Path, data_type: str) -> None:
+@click.option(
+    "--star-list",
+    default=f"{MODULE_PATH}/data/mdwarfs_DR17.fits",
+    help="Star-list FITS (APOGEE_ID + parameters + optional 'file' column).",
+)
+def main(star_path: str | Path, output_path: str | Path, data_type: str, star_list: str) -> None:
     print(f"🔍 Finding fit files at {star_path}")
     star_paths = list(Path(star_path).glob("*.fits"))
     print(f"👉 {len(star_paths)} files found")
     FLUX, FAILED_STARS = combine_fluxes(star_paths=star_paths, data_type=data_type)
     FLUX.index.name = "FILE"
     print("📤 Extracting abundances")
-    ABUNDANCES = extract_abundances(
-        star_list_fits_file_path=f"{MODULE_PATH}/data/mdwarfs_DR17.fits"
-    )
+    ABUNDANCES = extract_abundances(star_list_fits_file_path=star_list)
     print(f"📦 Saving failed stars at {output_path}")
     FAILED_STARS.to_csv(f"{output_path}/failed_stars.csv", index=False)
     # Combine fluxes and abundances
