@@ -64,12 +64,15 @@ def load_training_data(
 @click.option("--epochs", default=100, show_default=True)
 @click.option("--patience", default=5, show_default=True)
 @click.option("--learning-rate", default=0.001, show_default=True)
+@click.option("--loss", default="mse", show_default=True,
+              type=click.Choice(["mse", "mae", "huber", "weighted_mse"]))
+@click.option("--standardize-targets", is_flag=True, default=False, show_default=True)
 @click.option("--batch-size", default=64, show_default=True)
 @click.option("--model-out", default="models/cnn_lstm_attention_model.pt")
 @click.option("--embeddings-out", default="data/embeddings/attention.parquet")
 def main(
     spectra: str, layer: str, epochs: int, patience: int, learning_rate: float,
-    batch_size: int, model_out: str, embeddings_out: str,
+    loss: str, standardize_targets: bool, batch_size: int, model_out: str, embeddings_out: str,
 ) -> None:
     ids, X, Y, targets = load_training_data(spectra)
     click.echo(
@@ -82,6 +85,8 @@ def main(
         batch_size=batch_size,
         learning_rate=learning_rate,
         early_stopping_patience=patience,
+        loss=loss,
+        standardize_targets=standardize_targets,
         output_dimension=len(targets),
         checkpoint_path=model_out,
     )

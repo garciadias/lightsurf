@@ -88,6 +88,8 @@ class CnnLstmAttentionModel:
     dense_units: list[int] | int = field(default_factory=lambda: [20, 8])
     output_dimension: int = 9
     early_stopping_patience: int = 5
+    loss: str = "mse"
+    standardize_targets: bool = False
     checkpoint_path: str | Path = "models/cnn_lstm_attention_model.pt"
     random_state: int = 42
     verbose: int = 1
@@ -114,7 +116,6 @@ class CnnLstmAttentionModel:
         model = self._build(n_feat)
         device = _device()
         optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
-        loss_fn = nn.MSELoss()
 
         rng = np.random.default_rng(self.random_state)
         idx = rng.permutation(n)
@@ -125,6 +126,25 @@ class CnnLstmAttentionModel:
         yt = torch.from_numpy(y[train_idx])
         Xv = torch.from_numpy(X[val_idx])  # CPU; chunked for the val forward
         yv = torch.from_numpy(y[val_idx])
+
+        # target statistics + optional per-element standardization
+        t_mean = yt.mean(dim=0)
+        t_std = yt.std(dim=0)
+        t_std[t_std == 0] = 1.0
+        if self.standardize_targets:
+            yt = (yt - t_mean) / t_std
+            yv = (yv - t_mean) / t_std
+        # loss selection
+        if self.loss == "mae":
+            loss_fn = nn.L1Loss()
+        elif self.loss == "huber":
+            loss_fn = nn.SmoothL1Loss()
+        elif self.loss == "weighted_mse":
+            _w = (1.0 / (t_std ** 2)).to(device)
+            _w = _w / _w.mean()
+            loss_fn = lambda out, yb: ((out - yb) ** 2 * _w).mean()
+        else:
+            loss_fn = nn.MSELoss()
 
         loader = DataLoader(TensorDataset(Xt, yt), batch_size=self.batch_size, shuffle=True)
 
