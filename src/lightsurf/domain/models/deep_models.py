@@ -24,11 +24,6 @@ import torch.nn.functional as F
 from pandas.core.frame import DataFrame
 from torch.utils.data import DataLoader, TensorDataset
 
-# cuDNN over-allocates workspace for the 999-channel first conv on RTX 5090
-# (tries 122 GiB) — native conv is memory-safe and only marginally slower here.
-torch.backends.cudnn.enabled = False
-
-
 def _device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -39,7 +34,7 @@ class CnnLstmAttention(nn.Module):
     def __init__(
         self,
         n_features: int,
-        cnn_filters: list[int] | int = (999, 499, 249, 124, 61),
+        cnn_filters: list[int] | int = (1024, 512, 256, 128, 64),
         lstm_units: int = 256,
         dense_units: list[int] | int = (20, 8),
         output_dim: int = 9,
@@ -88,7 +83,7 @@ class CnnLstmAttentionModel:
     batch_size: int = 64
     learning_rate: float = 0.001
     validation_split: float = 0.2
-    cnn_filters: list[int] | int = field(default_factory=lambda: [999, 499, 249, 124, 61])
+    cnn_filters: list[int] | int = field(default_factory=lambda: [1024, 512, 256, 128, 64])
     lstm_units: int = 256
     dense_units: list[int] | int = field(default_factory=lambda: [20, 8])
     output_dimension: int = 9
