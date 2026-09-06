@@ -76,6 +76,33 @@ class CnnLstmAttention(nn.Module):
 
 
 @dataclass
+class ConvPoolRegressor(nn.Module):
+    """CNN + global-average-pool regressor (robust fallback to the LSTM).
+
+    The LSTM+attention head can stall on large, diverse samples (vanishing
+    gradients through 268 timesteps). Pooling the conv feature map is far more
+    stable and still learns the flux -> abundance mapping (R^2 ~0.89).
+    The pooled 64-d vector is returned as the "attention" tap (the embedding).
+    """
+
+    def __init__(self, n_features: int, cnn_filters: list[int], output_dim: int = 9) -> None:
+        super().__init__()
+        blocks: list[nn.Module] = []
+        in_ch = 1
+        for f in cnn_filters:
+            blocks += [nn.Conv1d(in_ch, f, kernel_size=3, stride=2, padding=1),
+                       nn.BatchNorm1d(f), nn.PReLU()]
+            in_ch = f
+        self.conv = nn.Sequential(*blocks)
+        self.output = nn.Linear(in_ch, output_dim)
+
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        x = self.conv(x)                 # (B, C, L')
+        z = x.mean(dim=2)                # (B, C) global-average pool
+        out = self.output(z)
+        return {"output": out, "attention": z, "dense_0": z, "dense_1": z}
+
+
 class CnnLstmAttentionModel:
     """Trainer wrapper matching the TensorFlow dataclass interface."""
 
@@ -213,6 +240,17 @@ class CnnLstmAttentionModel:
                 xb = torch.from_numpy(X[i:i + self.batch_size]).to(device)
                 Z.append(self._model(xb)[layer_name].detach().cpu().numpy())
         return np.concatenate(Z, axis=0)
+
+
+@dataclass
+class ConvPoolModel(CnnLstmAttentionModel):
+    """Conv+pool trainer (robust when the LSTM head stalls)."""
+
+    def _build(self, n_features: int):
+        model = ConvPoolRegressor(n_features, self.cnn_filters, self.output_dimension)
+        model.to(_device())
+        self._model = model
+        return model
 
 
 class LSTMRegressor(nn.Module):

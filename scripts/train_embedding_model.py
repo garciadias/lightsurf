@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from lightsurf.constants import APOGEE_ABUNDANCE_TARGETS, APOGEE_WAVELENGTH_AIR_STR
-from lightsurf.domain.models.deep_models import CnnLstmAttentionModel
+from lightsurf.domain.models.deep_models import CnnLstmAttentionModel, ConvPoolModel
 
 WAVELENGTH_SET = frozenset(APOGEE_WAVELENGTH_AIR_STR)
 
@@ -73,12 +73,14 @@ def load_training_data(
 @click.option("--standardize-targets", is_flag=True, default=False, show_default=True)
 @click.option("--standardize-flux", is_flag=True, default=False, show_default=True,
               help="Per-star zero-mean unit-var on the flux (DR19 apStar is raw ~1e4).")
+@click.option("--arch", default="lstm", show_default=True,
+              type=click.Choice(["lstm", "convpool"]))
 @click.option("--batch-size", default=64, show_default=True)
 @click.option("--model-out", default="models/cnn_lstm_attention_model.pt")
 @click.option("--embeddings-out", default="data/embeddings/attention.parquet")
 def main(
     spectra: str, layer: str, epochs: int, patience: int, learning_rate: float,
-    loss: str, standardize_targets: bool, standardize_flux: bool,
+    loss: str, standardize_targets: bool, standardize_flux: bool, arch: str,
     batch_size: int, model_out: str, embeddings_out: str,
 ) -> None:
     ids, X, Y, targets = load_training_data(spectra, standardize_flux=standardize_flux)
@@ -87,7 +89,8 @@ def main(
         f"→ {len(targets)} targets {targets}",
     )
 
-    model = CnnLstmAttentionModel(
+    Trainer = ConvPoolModel if arch == "convpool" else CnnLstmAttentionModel
+    model = Trainer(
         epochs=epochs,
         batch_size=batch_size,
         learning_rate=learning_rate,
