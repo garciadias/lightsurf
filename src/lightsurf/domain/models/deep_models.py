@@ -24,6 +24,10 @@ import torch.nn.functional as F
 from pandas.core.frame import DataFrame
 from torch.utils.data import DataLoader, TensorDataset
 
+# cuDNN over-allocates workspace for the 999-channel first conv on RTX 5090
+# (tries 122 GiB) — native conv is memory-safe and only marginally slower here.
+torch.backends.cudnn.enabled = False
+
 
 def _device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
