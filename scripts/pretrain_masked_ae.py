@@ -47,7 +47,12 @@ def load_spectra(path: str | Path, standardize: bool = True):
         m = X.mean(axis=1, keepdims=True)
         s = X.std(axis=1, keepdims=True) + 1e-8
         X = (X - m) / s
-    ids = df["FILE"].astype(str).str.removesuffix(".fits")
+    ids = df["FILE"].astype(str)
+    ids = (
+        ids.str.removeprefix("apStar-1.3-apo25m-")
+           .str.removeprefix("aspcapStar-dr17-")
+           .str.replace(r"-\d{5}$", "", regex=True)
+    )
     return ids, X
 
 
