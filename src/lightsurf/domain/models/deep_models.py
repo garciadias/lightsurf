@@ -126,10 +126,10 @@ class CnnLstmAttentionModel:
         n_val = int(n * self.validation_split)
         val_idx, train_idx = idx[:n_val], idx[n_val:]
 
-        Xt = torch.from_numpy(X[train_idx]).to(device)
-        yt = torch.from_numpy(y[train_idx]).to(device)
-        Xv = torch.from_numpy(X[val_idx]).to(device)
-        yv = torch.from_numpy(y[val_idx]).to(device)
+        Xt = torch.from_numpy(X[train_idx])  # CPU; move per-batch to avoid holding all on GPU
+        yt = torch.from_numpy(y[train_idx])
+        Xv = torch.from_numpy(X[val_idx])  # CPU; chunked for the val forward
+        yv = torch.from_numpy(y[val_idx])
 
         loader = DataLoader(TensorDataset(Xt, yt), batch_size=self.batch_size, shuffle=True)
 
@@ -142,6 +142,7 @@ class CnnLstmAttentionModel:
             model.train()
             epoch_loss = 0.0
             for xb, yb in loader:
+                xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
                 out = model(xb)["output"]
                 loss = loss_fn(out, yb)
@@ -151,8 +152,13 @@ class CnnLstmAttentionModel:
             epoch_loss /= len(train_idx)
 
             model.eval()
+            val_loss = 0.0
             with torch.no_grad():
-                val_loss = float(loss_fn(model(Xv)["output"], yv).item())
+                for i in range(0, len(Xv), self.batch_size):
+                    xb = Xv[i:i + self.batch_size].to(device)
+                    yb = yv[i:i + self.batch_size].to(device)
+                    val_loss += float(loss_fn(model(xb)["output"], yb).item()) * len(xb)
+                val_loss /= len(Xv)
             history["loss"].append(epoch_loss)
             history["val_loss"].append(val_loss)
 
