@@ -75,7 +75,6 @@ class CnnLstmAttention(nn.Module):
         return {"output": out, "attention": att, "dense_0": d0, "dense_1": d1}
 
 
-@dataclass
 class ConvPoolRegressor(nn.Module):
     """CNN + global-average-pool regressor (robust fallback to the LSTM).
 
@@ -103,6 +102,7 @@ class ConvPoolRegressor(nn.Module):
         return {"output": out, "attention": z, "dense_0": z, "dense_1": z}
 
 
+@dataclass
 class CnnLstmAttentionModel:
     """Trainer wrapper matching the TensorFlow dataclass interface."""
 
