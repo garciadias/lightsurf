@@ -1,403 +1,212 @@
+"""PyTorch port of the lightsurf CNN-LSTM-Attention spectral model.
+
+Faithful architectural port of the TensorFlow ``CnnLstmAttentionModel`` so the
+DR19 re-embed is comparable to the DR17 TensorFlow embeddings:
+
+* 5 × Conv1d(k=3, s=2, same) + BatchNorm + PReLU  (filters 999→61)
+* LSTM(256, return_sequences) → tanh/sigmoid attention → 256-d
+* Dense(20) → Dense(8) → Dense(9)  (9 APOGEE abundance targets)
+
+Embedding taps (returned by ``forward``): ``attention`` (256-d), ``dense_0``
+(20-d), ``dense_1`` (8-d).
+"""
+
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
-import tensorflow as tf
-from pandas.api.extensions import ExtensionArray
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from pandas.core.frame import DataFrame
-from pandas.core.series import Series
-from sklearn.model_selection import train_test_split
-from tensorflow import keras as tfk
-
-# Check if GPU is available
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Set memory growth to avoid allocating all memory at once
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        print(f"GPUs {gpus} are available and memory growth is set.")
-    except RuntimeError as e:
-        print(e)
-else:
-    print("No GPU found. Using CPU.")
+from torch.utils.data import DataLoader, TensorDataset
 
 
-class AttentionLayer(tfk.layers.Layer):
-    def __init__(self, **kwargs):
-        super(AttentionLayer, self).__init__(**kwargs)
+def _device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def build(self, input_shape):
-        # Create the trainable weight variable for this layer.
-        self.attention_weights = self.add_weight(shape=(input_shape[-1], 1),
-                                                 initializer='glorot_uniform',
-                                                 trainable=True)
-        super(AttentionLayer, self).build(input_shape)
 
-    def call(self, x):
-        # Apply dense layer (tanh) to get attention scores
-        attention_scores = tfk.activations.tanh(tf.matmul(x, self.attention_weights))
-        # Remove last dimension
-        attention_scores = tf.squeeze(attention_scores, axis=-1)
-        # Apply softmax to get attention weights
-        attention_weights = tfk.activations.sigmoid(attention_scores)
-        # Multiply input by attention weights
-        attention_weights = tf.expand_dims(attention_weights, axis=-1)
-        weighted_output = x * attention_weights
-        # Sum the weighted sequence
-        output = tf.reduce_sum(weighted_output, axis=1)
-        return output
+class CnnLstmAttention(nn.Module):
+    """CNN + LSTM + attention regressor. ``forward`` returns every tap."""
+
+    def __init__(
+        self,
+        n_features: int,
+        cnn_filters: list[int] | int = (999, 499, 249, 124, 61),
+        lstm_units: int = 256,
+        dense_units: list[int] | int = (20, 8),
+        output_dim: int = 9,
+    ) -> None:
+        super().__init__()
+        if isinstance(cnn_filters, int):
+            cnn_filters = [cnn_filters]
+        if isinstance(dense_units, int):
+            dense_units = [dense_units]
+        cnn_filters = sorted(cnn_filters, reverse=True)
+        dense_units = sorted(dense_units, reverse=True)
+
+        blocks: list[nn.Module] = []
+        in_ch = 1
+        for f in cnn_filters:
+            blocks += [nn.Conv1d(in_ch, f, kernel_size=3, stride=2, padding=1),
+                       nn.BatchNorm1d(f), nn.PReLU()]
+            in_ch = f
+        self.conv = nn.Sequential(*blocks)
+        self.lstm = nn.LSTM(in_ch, lstm_units, batch_first=True)
+        self.attention_w = nn.Parameter(torch.empty(lstm_units, 1))
+        nn.init.xavier_uniform_(self.attention_w)
+        d0, d1 = dense_units
+        self.dense_0 = nn.Linear(lstm_units, d0)
+        self.dense_1 = nn.Linear(d0, d1)
+        self.output = nn.Linear(d1, output_dim)
+
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        x = self.conv(x)                 # (B, C, L')
+        x = x.transpose(1, 2)            # (B, L', C)
+        x, _ = self.lstm(x)              # (B, L', H)
+        scores = torch.tanh(x @ self.attention_w).squeeze(-1)  # (B, L')
+        w = torch.sigmoid(scores).unsqueeze(-1)                 # (B, L', 1)
+        att = (x * w).sum(dim=1)         # (B, H)
+        d0 = F.relu(self.dense_0(att))
+        d1 = F.relu(self.dense_1(d0))
+        out = self.output(d1)
+        return {"output": out, "attention": att, "dense_0": d0, "dense_1": d1}
 
 
 @dataclass
 class CnnLstmAttentionModel:
+    """Trainer wrapper matching the TensorFlow dataclass interface."""
+
     epochs: int = 100
     batch_size: int = 64
-    loss: Literal["mse", "mae"] = "mse"
-    loss_metrics: List[str] = field(default_factory=lambda: ["mae"])
-    validation_split: float = 0.2
     learning_rate: float = 0.001
-    beta_1: float = 0.9
-    beta_2: float = 0.999
-    epsilon: float = 1e-07
-    verbose: int = 1
-    cnn_kernel_size: int = 3
-    cnn_strides: int = 2
-    cnn_filters: List[int] | int = field(
-        default_factory=lambda: [999, 499, 249, 124, 61]
-    )
-    lstm_units: List[int] | int = 256
-    dense_units: List[int] | int = field(default_factory=lambda: [20, 8])
-    dense_activation: str = "relu"
-    output_dimension: int = 1
+    validation_split: float = 0.2
+    cnn_filters: list[int] | int = field(default_factory=lambda: [999, 499, 249, 124, 61])
+    lstm_units: int = 256
+    dense_units: list[int] | int = field(default_factory=lambda: [20, 8])
+    output_dimension: int = 9
     early_stopping_patience: int = 5
-    early_stopping_monitor: str = "val_loss"
-    checkpoint_path: str | Path = "models/cnn_lstm_attention_model.keras"
-    save_best_only: bool = True
-    save_weights_only: bool = False
+    checkpoint_path: str | Path = "models/cnn_lstm_attention_model.pt"
+    random_state: int = 42
+    verbose: int = 1
+    _model: CnnLstmAttention | None = field(default=None, repr=False, init=False)
 
-    def __repr__(self):
-        model_name = "CnnLstmAttentionModel"
-        parameters = ", ".join(
-            [
-                f"{key}={value}"
-                for key, value in self.__dict__.items()
-                if not key.startswith("_")
-            ]
+    def _build(self, n_features: int) -> CnnLstmAttention:
+        model = CnnLstmAttention(
+            n_features=n_features,
+            cnn_filters=self.cnn_filters,
+            lstm_units=self.lstm_units,
+            dense_units=self.dense_units,
+            output_dim=self.output_dimension,
         )
-        return f"{model_name}({parameters})"
-
-    def _build_model(self, input_shape) -> tfk.Model:
-        # Input layer
-        inputs = tfk.layers.Input(shape=input_shape)
-
-        if isinstance(self.dense_units, int):
-            dense_units = [self.dense_units]
-        else:
-            dense_units = self.dense_units
-        if isinstance(self.lstm_units, int):
-            lstm_units = [self.lstm_units]
-        else:
-            lstm_units = self.lstm_units
-        if isinstance(self.cnn_filters, int):
-            cnn_filters = [self.cnn_filters]
-        else:
-            cnn_filters = self.cnn_filters
-        cnn_filters = sorted(cnn_filters, reverse=True)
-        lstm_units = sorted(lstm_units, reverse=True)
-        dense_units = sorted(dense_units, reverse=True)
-        # CNN layers
-        for i, filter_dim in enumerate(cnn_filters):
-            if i == 0:
-                x = tfk.layers.Conv1D(
-                    filters=filter_dim,
-                    kernel_size=self.cnn_kernel_size,
-                    strides=self.cnn_strides,
-                    padding='same'
-                )(inputs)
-                x = tfk.layers.BatchNormalization()(x)
-                x = tfk.layers.PReLU()(x)
-            else:
-                x = tfk.layers.Conv1D(
-                    filters=filter_dim,
-                    kernel_size=self.cnn_kernel_size,
-                    strides=self.cnn_strides,
-                    padding='same'
-                )(x)
-                x = tfk.layers.BatchNormalization()(x)
-                x = tfk.layers.PReLU()(x)
-
-        # LSTM layers
-        for i, lstm_unit in enumerate(lstm_units):
-            x = tfk.layers.LSTM(lstm_unit, return_sequences=True)(x)
-
-        # Attention mechanism
-        attention_output = AttentionLayer(name="attention")(x)
-
-        # Fully connected layers (named so the latent can be tapped)
-        for i, dense_unit in enumerate(dense_units):
-            x = tfk.layers.Dense(
-                dense_unit,
-                activation=self.dense_activation,
-                name=f"dense_{i}",
-            )(attention_output if i == 0 else x)
-
-        # Output layer for regression task (multi-element when output_dimension > 1)
-        output = tfk.layers.Dense(self.output_dimension, name="output")(x)
-        # Define the model
-        model = tfk.models.Model(inputs, output, name="cnn_lstm_attention_model")
-
-        self.callbacks = [
-            tfk.callbacks.EarlyStopping(
-                monitor=self.early_stopping_monitor,
-                patience=self.early_stopping_patience,
-            ),
-            tfk.callbacks.ModelCheckpoint(
-                self.checkpoint_path,
-                save_best_only=self.save_best_only,
-                save_weights_only=self.save_weights_only,
-            ),
-        ]
-
+        model.to(_device())
+        self._model = model
         return model
 
-    def _compile(self, optimizer, loss, metrics):
-        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    def fit(self, X, y) -> dict[str, list[float]]:
+        X = np.asarray(X, dtype="float32")
+        y = np.asarray(y, dtype="float32")
+        n, n_feat = X.shape
+        X = X.reshape(n, 1, n_feat)
 
-    def _create_optimizer(self):
-        return tfk.optimizers.Adam(
-            learning_rate=self.learning_rate,
-            beta_1=self.beta_1,
-            beta_2=self.beta_2,
-            epsilon=self.epsilon,
-        )
+        model = self._build(n_feat)
+        device = _device()
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
+        loss_fn = nn.MSELoss()
 
-    def fit(self, X_train, y_train) -> tfk.callbacks.History:
-        n_stars = X_train.shape[0]
-        n_features = X_train.shape[1]
-        train_data = X_train.values.reshape(n_stars, 1, n_features).astype('float32')
-        train_labels = y_train.values.astype('float32')
-        self.model = self._build_model((1, n_features))
-        optimizer = self._create_optimizer()
-        self._compile(optimizer=optimizer, loss=self.loss, metrics=self.loss_metrics)
-        self.model.summary()
-        history = self.model.fit(
-            train_data,
-            train_labels,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            validation_split=self.validation_split,
-            verbose=self.verbose,
-            callbacks=self.callbacks,
-        )
+        rng = np.random.default_rng(self.random_state)
+        idx = rng.permutation(n)
+        n_val = int(n * self.validation_split)
+        val_idx, train_idx = idx[:n_val], idx[n_val:]
+
+        Xt = torch.from_numpy(X[train_idx]).to(device)
+        yt = torch.from_numpy(y[train_idx]).to(device)
+        Xv = torch.from_numpy(X[val_idx]).to(device)
+        yv = torch.from_numpy(y[val_idx]).to(device)
+
+        loader = DataLoader(TensorDataset(Xt, yt), batch_size=self.batch_size, shuffle=True)
+
+        history: dict[str, list[float]] = {"loss": [], "val_loss": []}
+        best_val = float("inf")
+        best_state = None
+        patience = 0
+
+        for epoch in range(self.epochs):
+            model.train()
+            epoch_loss = 0.0
+            for xb, yb in loader:
+                optimizer.zero_grad()
+                out = model(xb)["output"]
+                loss = loss_fn(out, yb)
+                loss.backward()
+                optimizer.step()
+                epoch_loss += float(loss.item()) * len(xb)
+            epoch_loss /= len(train_idx)
+
+            model.eval()
+            with torch.no_grad():
+                val_loss = float(loss_fn(model(Xv)["output"], yv).item())
+            history["loss"].append(epoch_loss)
+            history["val_loss"].append(val_loss)
+
+            if self.verbose:
+                print(f"Epoch {epoch + 1}/{self.epochs} - loss: {epoch_loss:.4f} - val_loss: {val_loss:.4f}")
+
+            if val_loss < best_val:
+                best_val = val_loss
+                best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+                patience = 0
+            else:
+                patience += 1
+                if patience >= self.early_stopping_patience:
+                    if self.verbose:
+                        print(f"early stopping at epoch {epoch + 1}")
+                    break
+
+        if best_state is not None:
+            model.load_state_dict(best_state)
+        Path(self.checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+        torch.save(model.state_dict(), self.checkpoint_path)
         return history
 
-    def summary(self):
-        self.model.summary()
-
-    def predict(self, y_test):
-        return self.model.predict(
-            y_test.values.reshape(
-                y_test.shape[0],
-                1,
-                y_test.shape[1]).astype('float32')
-        ).flatten()
-
-    def embedding_model(self, layer_name: str) -> tfk.Model:
-        """Sub-model from the input to ``layer_name`` (the latent embedding).
-
-        Valid layer names: ``attention`` (256-d), ``dense_0`` (20-d),
-        ``dense_1`` (8-d bottleneck). Call :meth:`fit` first so the model
-        graph is built.
-        """
-        if not hasattr(self, "model") or self.model is None:
+    def predict_embeddings(self, X, layer_name: str) -> np.ndarray:
+        if self._model is None:
             raise ValueError("Model not built. Call fit() first.")
-        layer = self.model.get_layer(layer_name)
-        return tfk.models.Model(
-            self.model.input, layer.output, name=f"embedding_{layer_name}",
-        )
-
-    def predict_embeddings(
-        self, X: DataFrame | np.ndarray, layer_name: str,
-    ) -> np.ndarray:
-        """Extract the latent embedding at ``layer_name`` for each spectrum."""
-        if isinstance(X, DataFrame):
-            X = X.values
         X = np.asarray(X, dtype="float32")
         if X.ndim < 3:
             X = X.reshape(X.shape[0], 1, X.shape[1])
-        return self.embedding_model(layer_name).predict(X)
-
-    def score(
-        self, X: DataFrame | np.ndarray, y: DataFrame | np.ndarray
-    ) -> float:
-        if isinstance(X, DataFrame):
-            X = X.values
-        if len(X.shape) < 3:
-            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
-        if isinstance(y, Series):
-            y = y.values.astype("float32")
-
-        results = self.model.evaluate(
-            X.astype("float32"), y.astype("float32")
-        )
-        print(
-            f"{self.loss_metrics[0]}:\n"
-            f"Train: {results[0]:0.3f}, Validation: {results[1]:0.3f}"
-        )
-        return results[1]
-
-    def set_params(self, **parameters):
-        for parameter, value in parameters.items():
-            setattr(self, parameter, value)
-        return self
-
-    def get_params(self, deep: bool = False) -> dict:
-        del deep
-        return {
-            key: value
-            for key, value in self.__dict__.items()
-            if not key.startswith("_")
-        }
+        device = _device()
+        self._model.eval()
+        Z = []
+        with torch.no_grad():
+            for i in range(0, len(X), self.batch_size):
+                xb = torch.from_numpy(X[i:i + self.batch_size]).to(device)
+                Z.append(self._model(xb)[layer_name].detach().cpu().numpy())
+        return np.concatenate(Z, axis=0)
 
 
-@dataclass
-class LSTMRegressor:
-    checkpoint_path: str | Path
-    output_dimension: int = 1
-    loss: Literal["mse", "mae"] = "mae"
-    lstm_units: int = 250
-    dense_units: int = 128
-    learning_rate: float = 0.001
-    dropout: float = 0.2
-    epochs: int = 100
-    batch_size: int = 32
-    verbose: int = 1
-    random_state: int = 42
-    beta_1: float = 0.9
-    beta_2: float = 0.999
-    epsilon: float = 1e-07
-    dense_activation: str = "relu"
+class LSTMRegressor(nn.Module):
+    """PyTorch LSTM regressor (mirrors the TensorFlow LSTMRegressor)."""
 
-    def __repr__(self):
-        string_components = [
-            f"LSTMRegressor(lstm_units={self.lstm_units},",
-            f"dense_units={self.dense_units},",
-            f"dropout={self.dropout},",
-            f"epochs={self.epochs}, batch_size={self.batch_size},",
-            f"verbose={self.verbose}, random_state={self.random_state})",
-        ]
-        return " ".join(string_components)
+    def __init__(self, n_features: int, lstm_units: int = 250, dense_units: int = 128,
+                 dropout: float = 0.2, output_dim: int = 1) -> None:
+        super().__init__()
+        self.bn = nn.BatchNorm1d(1)
+        self.prelu = nn.PReLU()
+        self.lstm1 = nn.LSTM(n_features, lstm_units, batch_first=True, dropout=dropout)
+        self.lstm2 = nn.LSTM(lstm_units, lstm_units, batch_first=True, dropout=dropout)
+        self.dense1 = nn.Linear(lstm_units, dense_units)
+        self.dense2 = nn.Linear(dense_units, dense_units // 2)
+        self.output = nn.Linear(dense_units // 2, output_dim)
 
-    def _build_model(self, input_shape: Tuple[int, int, int]):
-        inputs = tfk.layers.Input(shape=input_shape)
-        x = tfk.layers.BatchNormalization()(inputs)
-        x = tfk.layers.PReLU()(x)
-        x = tfk.layers.LSTM(
-            self.lstm_units, dropout=self.dropout, return_sequences=True
-        )(x)
-        x = tfk.layers.LSTM(self.lstm_units, dropout=self.dropout)(x)
-        x = tfk.layers.Dense(self.dense_units, activation=self.dense_activation)(x)
-        x = tfk.layers.Dense(self.dense_units // 2, activation=self.dense_activation)(x)
-        output = tfk.layers.Dense(self.output_dimension)(x)
-
-        self.model = tfk.models.Model(inputs, output)
-
-        return self.model
-
-    def _compile_model(self):
-        optimizer = tfk.optimizers.Adam(
-            learning_rate=self.learning_rate,
-            beta_1=self.beta_1,
-            beta_2=self.beta_2,
-            epsilon=self.epsilon,
-        )
-        self.model.compile(
-            loss=self.loss,
-            optimizer=optimizer,
-            metrics=[self.loss],
-        )
-
-    def fit(
-        self,
-        X_train: DataFrame,
-        y_train: Series,
-        sequence_split_by: Optional[Union[str, List[str]]] = None,
-        val_size: float = 0.2,
-    ):
-        self.callbacks = [
-            tfk.callbacks.EarlyStopping(monitor="val_loss", patience=5),
-            tfk.callbacks.ModelCheckpoint(
-                self.checkpoint_path, save_best_only=True, save_weights_only=False
-            ),
-        ]
-        print(self)
-        x_train_, x_val, y_train_, y_val = train_test_split(
-            X_train, y_train, test_size=val_size, random_state=self.random_state
-        )
-        if sequence_split_by is not None:
-            x_train_, y_train_ = self.get_sequence_data(
-                X_train, y_train, sequence_split_by
-            )
-        else:
-            x_train_ = x_train_.values.reshape(x_train_.shape[0], 1, x_train_.shape[1])
-            x_val = x_val.values.reshape(x_val.shape[0], 1, x_val.shape[1])
-            y_train_, y_val = y_train_.values, y_val.values
-
-        self._build_model(input_shape=(1, x_train_.shape[2]))
-        self._compile_model()
-
-        self.model.summary()
-        self.model.fit(
-            x_train_.astype("float32"),
-            y_train_.astype("float32"),
-            validation_data=(x_val.astype("float32"), y_val.astype("float32")),
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            callbacks=self.callbacks,
-            verbose=self.verbose,
-        )
-
-    def predict(self, X: Union[DataFrame, np.ndarray[Any, Any]]):
-        if isinstance(X, DataFrame):
-            X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
-        if len(X.shape) < 3:
-            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
-        return self.model.predict(X.astype("float32")).flatten()
-
-    def get_params(self, deep: bool = False):
-        return {
-            "checkpoint_path": self.checkpoint_path,
-            "lstm_units": self.lstm_units,
-            "dense_units": self.dense_units,
-            "dropout": self.dropout,
-            "epochs": self.epochs,
-            "batch_size": self.batch_size,
-        }
-
-    def set_params(self, **parameters):
-        for parameter, value in parameters.items():
-            setattr(self, parameter, value)
-        return self
-
-    def score(
-        self,
-        X: Union[DataFrame, np.ndarray[Any, Any]],
-        y: Union[ExtensionArray, Series, np.ndarray[Any, Any]],
-    ):
-        # Return the validation loss
-        if isinstance(X, DataFrame):
-            X = X.values.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
-        if len(X.shape) < 3:
-            X = X.reshape(X.shape[0], 1, X.shape[1]).astype("float32")
-        if isinstance(y, Series):
-            y = y.values.astype("float32")
-        results = self.model.evaluate(X.astype("float32"), y.astype("float32"))
-        self.model.summary()
-        print(
-            f"After {self.epochs} epochs:\n"
-            "MAE:\n"
-            f"Train: {results[0]:0.3f}, Validation: {results[1]:0.3f}"
-        )
-        return results[1]
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.prelu(self.bn(x))
+        x, _ = self.lstm1(x)
+        x, _ = self.lstm2(x)
+        x = x[:, -1, :]
+        x = F.relu(self.dense1(x))
+        x = F.relu(self.dense2(x))
+        return self.output(x)

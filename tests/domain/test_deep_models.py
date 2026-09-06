@@ -1,4 +1,4 @@
-"""Smoke tests for the embedding-extraction hooks on CnnLstmAttentionModel.
+"""Smoke tests for the embedding-extraction hooks on CnnLstmAttentionModel (PyTorch).
 
 Kept tiny (8 synthetic spectra, 64 flux bins, 1 epoch) so the tests run on
 CPU in a few seconds — they only verify the latent-tap plumbing, not the
@@ -27,7 +27,7 @@ def tiny_model(tmp_path: Path) -> CnnLstmAttentionModel:
         dense_units=[6, 4],
         output_dimension=1,
         verbose=0,
-        checkpoint_path=str(tmp_path / "model.keras"),
+        checkpoint_path=str(tmp_path / "model.pt"),
     )
 
 
@@ -50,9 +50,11 @@ def test_embedding_extraction_shapes(
         assert emb.shape == (8, dim), f"{layer}: {emb.shape}"
 
 
-def test_embedding_model_requires_fit(tiny_model: CnnLstmAttentionModel) -> None:
+def test_predict_embeddings_requires_fit(tiny_model: CnnLstmAttentionModel) -> None:
     with pytest.raises(ValueError, match="not built"):
-        tiny_model.embedding_model("attention")
+        tiny_model.predict_embeddings(
+            np.zeros((2, 64), dtype="float32"), "attention",
+        )
 
 
 def test_multitask_output_dimension(spectra: pd.DataFrame, tmp_path: Any) -> None:
@@ -64,10 +66,10 @@ def test_multitask_output_dimension(spectra: pd.DataFrame, tmp_path: Any) -> Non
         dense_units=[6, 4],
         output_dimension=9,
         verbose=0,
-        checkpoint_path=str(tmp_path / "multi.keras"),
+        checkpoint_path=str(tmp_path / "multi.pt"),
     )
     rng = np.random.default_rng(2)
     y = pd.DataFrame(rng.standard_normal((8, 9)).astype("float32"))
     model.fit(spectra, y)
-    assert model.model.output.shape[-1] == 9
+    assert model._model.output.out_features == 9
     assert model.predict_embeddings(spectra, "attention").shape == (8, 8)
