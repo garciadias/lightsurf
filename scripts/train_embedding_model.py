@@ -62,12 +62,14 @@ def load_training_data(
 @click.option("--spectra", required=True, type=click.Path(exists=True))
 @click.option("--layer", default="attention", show_default=True)
 @click.option("--epochs", default=100, show_default=True)
+@click.option("--patience", default=5, show_default=True)
+@click.option("--learning-rate", default=0.001, show_default=True)
 @click.option("--batch-size", default=64, show_default=True)
 @click.option("--model-out", default="models/cnn_lstm_attention_model.pt")
 @click.option("--embeddings-out", default="data/embeddings/attention.parquet")
 def main(
-    spectra: str, layer: str, epochs: int, batch_size: int,
-    model_out: str, embeddings_out: str,
+    spectra: str, layer: str, epochs: int, patience: int, learning_rate: float,
+    batch_size: int, model_out: str, embeddings_out: str,
 ) -> None:
     ids, X, Y, targets = load_training_data(spectra)
     click.echo(
@@ -78,6 +80,8 @@ def main(
     model = CnnLstmAttentionModel(
         epochs=epochs,
         batch_size=batch_size,
+        learning_rate=learning_rate,
+        early_stopping_patience=patience,
         output_dimension=len(targets),
         checkpoint_path=model_out,
     )
