@@ -51,6 +51,7 @@ def load_training_data(
     if not targets:
         raise ValueError(f"no abundance targets found in {path}")
     X = df[cols].to_numpy(dtype="float32")
+    X = np.nan_to_num(X, nan=0.0)  # apStar bad pixels -> 0 flux (DR17 was NaN-free)
     Y = df[targets].to_numpy(dtype="float32")
     keep = np.isfinite(X).all(axis=1) & np.isfinite(Y).all(axis=1)
     ids = df[id_column].astype(str)
