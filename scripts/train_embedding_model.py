@@ -35,7 +35,7 @@ def flux_columns(columns: list[str]) -> list[str]:
 
 
 def load_training_data(
-    path: str | Path, id_column: str = "FILE",
+    path: str | Path, id_column: str = "FILE", standardize_flux: bool = False,
 ) -> tuple[pd.Series, np.ndarray, np.ndarray, list[str]]:
     """Read the flux CSV → (ids, spectra, multi-target labels, target names)."""
     df = pd.read_csv(path)
@@ -47,6 +47,10 @@ def load_training_data(
         raise ValueError(f"no abundance targets found in {path}")
     X = df[cols].to_numpy(dtype="float32")
     X = np.nan_to_num(X, nan=0.0)  # apStar bad pixels -> 0 flux
+    if standardize_flux:
+        m = X.mean(axis=1, keepdims=True)
+        s = X.std(axis=1, keepdims=True) + 1e-8
+        X = (X - m) / s
     Y = df[targets].to_numpy(dtype="float32")
     keep = np.isfinite(X).all(axis=1) & np.isfinite(Y).all(axis=1)
     ids = df[id_column].astype(str)
@@ -67,14 +71,17 @@ def load_training_data(
 @click.option("--loss", default="mse", show_default=True,
               type=click.Choice(["mse", "mae", "huber", "weighted_mse"]))
 @click.option("--standardize-targets", is_flag=True, default=False, show_default=True)
+@click.option("--standardize-flux", is_flag=True, default=False, show_default=True,
+              help="Per-star zero-mean unit-var on the flux (DR19 apStar is raw ~1e4).")
 @click.option("--batch-size", default=64, show_default=True)
 @click.option("--model-out", default="models/cnn_lstm_attention_model.pt")
 @click.option("--embeddings-out", default="data/embeddings/attention.parquet")
 def main(
     spectra: str, layer: str, epochs: int, patience: int, learning_rate: float,
-    loss: str, standardize_targets: bool, batch_size: int, model_out: str, embeddings_out: str,
+    loss: str, standardize_targets: bool, standardize_flux: bool,
+    batch_size: int, model_out: str, embeddings_out: str,
 ) -> None:
-    ids, X, Y, targets = load_training_data(spectra)
+    ids, X, Y, targets = load_training_data(spectra, standardize_flux=standardize_flux)
     click.echo(
         f"training on {len(ids)} stars × {X.shape[1]} flux bins "
         f"→ {len(targets)} targets {targets}",

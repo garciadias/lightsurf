@@ -90,6 +90,7 @@ class CnnLstmAttentionModel:
     early_stopping_patience: int = 5
     loss: str = "mse"
     standardize_targets: bool = False
+    grad_clip: float = 1.0
     checkpoint_path: str | Path = "models/cnn_lstm_attention_model.pt"
     random_state: int = 42
     verbose: int = 1
@@ -162,6 +163,7 @@ class CnnLstmAttentionModel:
                 out = model(xb)["output"]
                 loss = loss_fn(out, yb)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
                 optimizer.step()
                 epoch_loss += float(loss.item()) * len(xb)
             epoch_loss /= len(train_idx)
