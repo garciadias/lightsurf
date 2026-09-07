@@ -20,13 +20,13 @@ def _device():
 
 
 @click.command()
-@click.option("--list", required=True, type=click.Path(exists=True))
+@click.option("--star-list", required=True, type=click.Path(exists=True))
 @click.option("--outdir", default="aspcap_dr17")
 @click.option("--model", required=True, type=click.Path(exists=True))
 @click.option("--embeddings-out", required=True)
 @click.option("--workers", default=40)
-def main(list, outdir, model, embeddings_out, workers):
-    df = pd.read_csv(list)
+def main(star_list, outdir, model, embeddings_out, workers):
+    df = pd.read_csv(star_list)
     out = Path(outdir)
     out.mkdir(parents=True, exist_ok=True)
 
