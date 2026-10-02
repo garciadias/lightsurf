@@ -7,9 +7,10 @@ latent APOGEE_IDs to produce ``labels.parquet`` (contract schema) plus a
 ``dr19_mdwarf_candidates.parquet`` list for the S8 expansion stage.
 
 Astra specifics (verified against astraAllStarASPCAP-0.6.0, HDU 2, 1,095,480 rows):
-  * identifier: ``sdss4_apogee_id`` holds the 2MASS designation WITHOUT the
-    leading ``2M`` (e.g. ``19140272-1554055``); the latents/DR17 use the ``2M``
-    prefixed form, so we prepend ``2M`` to match.
+  * identifier: ``sdss4_apogee_id`` holds the full 2MASS designation WITH the
+    leading ``2M`` for the field stars (e.g. ``2M00001687+5...``); it matches
+    the latents/DR17 APOGEE_ID directly (verified: 39,945/39,945 overlap). A
+    minority of rows carry a non-2M designation, which simply will not match.
   * ``sdss_id`` (int64) gives the mwmStar path.
   * abundances are ``[X/H]`` (columns ``fe_h``, ``mg_h`` ...); we convert to
     ``[X/Fe] = X_H - FE_H`` and propagate errors in quadrature. ``FE_H`` stays
@@ -99,7 +100,7 @@ def load_astra_raw(cat_path: str | Path) -> pd.DataFrame:
         hdu = max(h[1:], key=lambda x: getattr(x, "header", {}).get("NAXIS2", 0))
         d = hdu.data
         cols: dict[str, np.ndarray] = {}
-        cols["APOGEE_ID"] = "2M" + np.char.strip(d["sdss4_apogee_id"].astype(str))
+        cols["APOGEE_ID"] = np.char.strip(d["sdss4_apogee_id"].astype(str))
         cols["sdss_id"] = _native(d["sdss_id"]).astype(np.int64)
         cols["telescope"] = np.char.strip(d["telescope"].astype(str))
         cols["teff19"] = _native(d["teff"]).astype(float)
