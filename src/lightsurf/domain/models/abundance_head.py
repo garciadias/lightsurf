@@ -103,6 +103,22 @@ def masked_mse(pred: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> 
     return sq.sum() / denom
 
 
+def draw_reservoir_subset(ids, n: int, seed: int) -> np.ndarray:
+    """Draw ``n`` reservoir ids without replacement for one sweep cell.
+
+    Pure function of ``(ids, n, seed)``: replicates the sweep's seeded draw
+    (``np.random.default_rng([n, seed])``) from the artifact inputs alone, so
+    external auditors can recompute any sweep cell (preregistered finding F5).
+    ``ids`` is in reservoir order; the returned array keeps the drawn order.
+    """
+    ids = np.asarray(ids)
+    if n > len(ids):
+        raise ValueError(f"n={n} exceeds the reservoir size ({len(ids)})")
+    rng = np.random.default_rng([n, seed])
+    idx = rng.choice(len(ids), size=n, replace=False)
+    return ids[idx]
+
+
 def _as_tensors(Z, Y, M, device):
     Zt = torch.as_tensor(np.asarray(Z, dtype=np.float32), device=device)
     Yt = torch.as_tensor(np.asarray(Y, dtype=np.float32), device=device)

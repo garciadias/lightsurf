@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _abundance_data import TARGETS, build_datasets, label_kinds  # noqa: E402
 
 from lightsurf.domain.models.abundance_head import (  # noqa: E402
-    finetune_head, load_head, predict,
+    draw_reservoir_subset, finetune_head, load_head, predict,
 )
 from lightsurf.domain.services.evaluation.sample_size import (  # noqa: E402
     posthoc_calibration, ridge_baseline, rmse_masked,
@@ -86,6 +86,7 @@ def run_sweep(base_head, splits, kinds, config, out_path, *, n_grid=N_GRID,
     head, std = base_head, head_std
     reservoir, test = splits["reservoir"], splits["test"]
     n_res = len(reservoir)
+    id_pos = {str(i): k for k, i in enumerate(reservoir.ids)}
     ns = [n for n in n_grid if n <= n_res]
     out_path = Path(out_path)
     _, done = _load_existing(out_path)
@@ -106,8 +107,8 @@ def run_sweep(base_head, splits, kinds, config, out_path, *, n_grid=N_GRID,
                        if (n, seed, a) not in done}
             if not pending:
                 continue
-            rng = np.random.default_rng([n, seed])
-            idx = rng.choice(n_res, size=n, replace=False)
+            sub_ids = draw_reservoir_subset(reservoir.ids, n, seed)
+            idx = np.array([id_pos[str(i)] for i in sub_ids], dtype=np.int64)
             sub = reservoir.subset(idx)
             rows = []
             if "ft_full" in pending:

@@ -18,7 +18,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from _abundance_data import TARGETS, build_datasets, label_kinds  # noqa: E402
-from lightsurf.domain.models.abundance_head import fit_head  # noqa: E402
+from lightsurf.domain.models.abundance_head import (  # noqa: E402
+    draw_reservoir_subset, fit_head,
+)
 import sample_size_sweep as sw  # noqa: E402
 
 
@@ -129,3 +131,19 @@ def test_sweep_resume_skips_and_reproduces(fixtures):
     # ft arms reproduce to float tolerance (determinism, AC9)
     merged = df1.merge(df2, on=keys, suffixes=("_a", "_b"))
     assert np.allclose(merged.rmse_a, merged.rmse_b, atol=1e-5, equal_nan=True)
+
+
+def test_draw_reservoir_subset_matches_sweep_rng_contract():
+    """F5: the draw is a pure function replicating the sweep's seeded rule."""
+    ids = np.array([f"S{i:04d}" for i in range(120)])
+    for n, seed in [(10, 0), (20, 7), (120, 3), (1, 19)]:
+        got_a = draw_reservoir_subset(ids, n, seed)
+        got_b = draw_reservoir_subset(ids, n, seed)
+        np.testing.assert_array_equal(got_a, got_b)  # pure / deterministic
+        assert len(set(got_a)) == n  # without replacement
+        # matches the historical inline draw exactly
+        rng = np.random.default_rng([n, seed])
+        want = ids[rng.choice(len(ids), size=n, replace=False)]
+        np.testing.assert_array_equal(got_a, want)
+    with pytest.raises(ValueError):
+        draw_reservoir_subset(ids, 121, 0)

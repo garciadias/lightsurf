@@ -68,6 +68,7 @@ def fit_head(Z, Y, M, *, epochs, lr, weight_decay, seed, val_frac=0.2,
 def finetune_head(head, std, Z, Y, M, *, arm: "full"|"last", epochs, lr,
                   weight_decay, seed, device=None) -> AbundanceHead  # deep copy; no val split
 def predict(head, std, Z, device=None) -> np.ndarray   # physical units
+def draw_reservoir_subset(ids, n, seed) -> np.ndarray  # pure; the sweep's per-cell draw (F5)
 ```
 `Z` float32 (n, 256), `Y` float32 (n, 9) with NaN allowed, `M` bool (n, 9).
 `Standardiser` stores per-element mean/std of the base training targets and is
