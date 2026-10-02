@@ -133,9 +133,12 @@ def _repo_commit() -> str:
     """HEAD commit of the running checkout (best effort)."""
     try:
         import subprocess
+        d = Path(__file__).resolve().parent
+        root = next((p for p in [d, *d.parents] if (p / ".git").exists()), None)
+        if root is None:
+            return "unknown"
         out = subprocess.check_output(
-            ["git", "-C", str(Path(__file__).resolve().parents[2]),
-             "rev-parse", "--short", "HEAD"],
+            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
             text=True, stderr=subprocess.DEVNULL)
         return out.strip()
     except Exception:  # pragma: no cover - non-repo checkout
